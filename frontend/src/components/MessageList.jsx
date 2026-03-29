@@ -1,0 +1,45 @@
+function MessageBubble({ role, content, messageKey, copiedKey, onCopy }) {
+  const isAssistant = role === "assistant";
+
+  return (
+    <article className={`message-row ${isAssistant ? "assistant" : "user"}`}>
+      <div className="avatar">{isAssistant ? "AI" : "ME"}</div>
+      <div className="message-bubble">
+        <div className="message-header">
+          <span className="message-role">{isAssistant ? "Assistant" : "You"}</span>
+          <button
+            type="button"
+            className="copy-button"
+            onClick={() => onCopy()}
+          >
+            {copiedKey === messageKey ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <p>{content || " "}</p>
+      </div>
+    </article>
+  );
+}
+
+export default function MessageList({
+  messages,
+  isLoading,
+  copiedKey,
+  onCopyMessage,
+}) {
+  return (
+    <section className="message-list">
+      {messages.map((message, index) => (
+        <MessageBubble
+          key={`${message.role}-${index}`}
+          role={message.role}
+          content={message.content}
+          messageKey={`${message.role}-${index}`}
+          copiedKey={copiedKey}
+          onCopy={() => onCopyMessage(message, index)}
+        />
+      ))}
+      {isLoading ? <div className="stream-status">Streaming response</div> : null}
+    </section>
+  );
+}
