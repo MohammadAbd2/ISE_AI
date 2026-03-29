@@ -21,6 +21,7 @@ export default function ChatLayout({
 }) {
   return (
     <div className="app-shell">
+      {/* Decorative layers live behind the app shell so the chat UI stays readable. */}
       <div className="backdrop">
         <div className="backdrop-orb backdrop-orb-one" />
         <div className="backdrop-orb backdrop-orb-two" />
@@ -103,6 +104,7 @@ export default function ChatLayout({
             )}
           </div>
           <div className="profile-panel">
+            {/* The profile editor controls global assistant behavior across chats. */}
             <div className="history-title">AI profile</div>
             <div className="storage-chip">
               History: {storageMode}

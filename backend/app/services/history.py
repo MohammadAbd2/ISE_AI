@@ -32,6 +32,7 @@ class HistoryService:
             client.admin.command("ping")
             self.collection = client[db_name]["chat_sessions"]
         except PyMongoError:
+            # Fall back to in-memory storage when MongoDB is unavailable.
             self.collection = None
             self._mongo_available = False
 
@@ -52,6 +53,7 @@ class HistoryService:
             return [self._summary(document) for document in sessions]
         except PyMongoError:
             self._mongo_available = False
+            # Retry against memory mode after the first database failure.
             return self._list_sessions_sync()
 
     async def get_session(self, session_id: str) -> dict | None:
@@ -95,6 +97,7 @@ class HistoryService:
             document["_id"] = result.inserted_id
         except PyMongoError:
             self._mongo_available = False
+            # Preserve the session even if persistence fails after startup.
             memory_id = str(uuid4())
             document["_id"] = memory_id
             with self._lock:
@@ -177,6 +180,7 @@ class HistoryService:
         return "mongodb" if self._mongo_available and self.collection is not None else "memory"
 
     def _summary(self, document: dict) -> dict:
+        # Summaries power the chat history sidebar.
         messages = document.get("messages", [])
         preview = messages[-1]["content"] if messages else ""
         return {
@@ -208,6 +212,7 @@ class HistoryService:
 
 @lru_cache
 def get_history_service() -> HistoryService:
+    """Reuse one storage service instance across requests."""
     return HistoryService(
         mongo_uri=settings.mongo_uri,
         db_name=settings.mongo_db_name,

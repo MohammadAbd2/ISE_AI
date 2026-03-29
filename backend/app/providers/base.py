@@ -5,6 +5,8 @@ from backend.app.models.message import Message
 
 
 class LLMProvider(ABC):
+    """Common contract for any local or remote model provider."""
+
     @abstractmethod
     async def generate(self, messages: list[Message], model: str) -> str:
         raise NotImplementedError

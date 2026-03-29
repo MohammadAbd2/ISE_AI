@@ -8,6 +8,7 @@ export default function Composer({
   error,
 }) {
   function handleKeyDown(event) {
+    // Match common chat UX: Enter submits, Shift+Enter inserts a newline.
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       onSubmit(event);

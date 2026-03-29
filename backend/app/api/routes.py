@@ -25,6 +25,7 @@ router = APIRouter()
 
 @router.get("/health")
 def health_check() -> dict[str, str]:
+    """Simple readiness endpoint for local smoke tests."""
     return {"status": "ok"}
 
 
@@ -47,6 +48,7 @@ async def stream_chat(
 ) -> StreamingResponse:
     agent = ChatAgent(service=service, profile_service=profile)
     selected_model = payload.model or settings.default_model
+    # Existing sessions keep their stored message history on the server side.
     session = (
         await history.get_session(payload.session_id)
         if payload.session_id
@@ -64,6 +66,7 @@ async def stream_chat(
     async def event_stream():
         chunks: list[str] = []
         try:
+            # Send metadata first so the UI can update session and storage badges.
             yield json.dumps(
                 {
                     "type": "meta",
@@ -76,6 +79,7 @@ async def stream_chat(
             async for chunk in stream:
                 chunks.append(chunk)
                 yield json.dumps({"type": "token", "content": chunk}) + "\n"
+            # Persist the full assistant reply after streaming completes successfully.
             await history.append_message(
                 session["id"],
                 "assistant",

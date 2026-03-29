@@ -13,6 +13,7 @@ PROFILE_ID = "assistant_profile"
 
 
 def _normalize_lines(text: str) -> list[str]:
+    """Store memory as trimmed, non-empty lines."""
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
@@ -42,6 +43,7 @@ class ProfileService:
             client.admin.command("ping")
             self.collection = client[db_name]["assistant_profile"]
         except PyMongoError:
+            # Use the in-process profile when MongoDB is offline.
             self.collection = None
             self._mongo_available = False
 
@@ -133,6 +135,7 @@ class ProfileService:
 
 
 def detect_memory_command(text: str) -> tuple[str | None, str | None]:
+    """Detect simple natural-language commands for memory management."""
     value = text.strip()
     lower = value.lower()
     if "forget everything" in lower or "forget all" in lower or "clear memory" in lower:
@@ -169,6 +172,7 @@ def detect_memory_command(text: str) -> tuple[str | None, str | None]:
 
 
 def extract_helpful_memory(text: str) -> list[str]:
+    """Capture a few useful profile facts without requiring explicit commands."""
     findings: list[str] = []
     stripped = " ".join(text.split())
 
@@ -226,6 +230,7 @@ def extract_helpful_memory(text: str) -> list[str]:
 
 @lru_cache
 def get_profile_service() -> ProfileService:
+    """Reuse one profile service instance across requests."""
     return ProfileService(
         mongo_uri=settings.mongo_uri,
         db_name=settings.mongo_db_name,

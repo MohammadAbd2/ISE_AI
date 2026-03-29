@@ -19,6 +19,7 @@ const initialMessages = [
 ];
 
 export default function App() {
+  // App keeps network state, selected chat, and streaming output in one place.
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +60,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Initial page load restores chat history and the assistant profile.
     loadSessions();
     loadProfile();
   }, []);
@@ -215,6 +217,7 @@ export default function App() {
     }
 
     const nextMessages = [...messages, { role: "user", content: value }];
+    // Draft chats send local conversation context; persisted sessions reload context from the backend.
     const conversation = currentSessionId && currentSessionId !== DRAFT_SESSION_ID
       ? []
       : nextMessages.filter((message) => message.role !== "assistant" || messages.length > 1).slice(0, -1);
@@ -264,6 +267,7 @@ export default function App() {
           if (!line.trim()) {
             continue;
           }
+          // The backend streams newline-delimited JSON events.
           const data = JSON.parse(line);
           if (data.type === "meta" && data.model) {
             setActiveModel(data.model);

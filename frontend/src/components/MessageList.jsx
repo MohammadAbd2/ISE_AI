@@ -29,6 +29,7 @@ export default function MessageList({
 }) {
   return (
     <section className="message-list">
+      {/* Rendering order is preserved so streaming text can update the last assistant bubble in place. */}
       {messages.map((message, index) => (
         <MessageBubble
           key={`${message.role}-${index}`}

@@ -1,4 +1,5 @@
 :root {
+  /* Shared design tokens for the cyber-terminal visual theme. */
   color-scheme: dark;
   --bg: #06111a;
   --bg-grid: rgba(57, 208, 255, 0.08);
@@ -66,6 +67,7 @@ select {
 }
 
 .backdrop {
+  /* Background effects are fixed so the content scrolls independently. */
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -258,6 +260,7 @@ select {
 }
 
 .history-panel {
+  /* Sidebar combines persisted chat history and the assistant profile editor. */
   border-right: 1px solid var(--line);
   background: rgba(4, 14, 22, 0.58);
   backdrop-filter: blur(12px);
@@ -454,6 +457,7 @@ select {
 }
 
 .message-bubble {
+  /* Message cards are animated lightly so streaming still feels responsive. */
   position: relative;
   padding: 18px 20px 16px;
   border-radius: 22px;
@@ -537,6 +541,7 @@ select {
 }
 
 .composer {
+  /* Keep the input composer visible while the conversation scrolls. */
   position: sticky;
   bottom: 0;
   padding: 18px 0 0;
@@ -664,6 +669,7 @@ select {
 }
 
 @media (max-width: 900px) {
+  /* Collapse to a single-column layout on tablets and small laptops. */
   .workspace {
     grid-template-columns: 1fr;
   }
@@ -704,6 +710,7 @@ select {
 }
 
 @media (max-width: 640px) {
+  /* Tighten spacing on phones without changing interaction patterns. */
   .topbar {
     padding: 18px 14px 10px;
   }

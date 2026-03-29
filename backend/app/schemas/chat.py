@@ -2,11 +2,13 @@ from pydantic import BaseModel, Field
 
 
 class ChatMessage(BaseModel):
+    """Single message exchanged between the frontend and backend."""
     role: str = Field(examples=["user", "assistant", "system"])
     content: str = Field(min_length=1)
 
 
 class ChatRequest(BaseModel):
+    """Incoming chat request for both regular and streaming endpoints."""
     message: str = Field(min_length=1)
     conversation: list[ChatMessage] = Field(default_factory=list)
     model: str | None = None
@@ -14,6 +16,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """Non-streaming response payload."""
     reply: str
     model: str
 

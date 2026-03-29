@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 def _load_env_file() -> dict[str, str]:
+    """Load .env values from the most common project entrypoints."""
     env_paths = [
         Path.cwd() / ".env",
         Path.cwd() / "backend" / ".env",
@@ -32,6 +33,7 @@ def _get_env(key: str, default: str) -> str:
 
 @dataclass(slots=True)
 class Settings:
+    """Centralized runtime configuration shared across the backend."""
     app_name: str = _get_env("APP_NAME", "ISE AI Chatbot")
     environment: str = _get_env("ENVIRONMENT", "development")
     ollama_base_url: str = _get_env("OLLAMA_BASE_URL", "http://localhost:11434")

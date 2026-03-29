@@ -12,6 +12,7 @@ class OllamaProvider(LLMProvider):
         self.base_url = base_url or settings.ollama_base_url
 
     def _build_payload(self, messages: list[Message], model: str, stream: bool) -> dict:
+        # Translate the internal message model into Ollama's chat payload shape.
         return {
             "model": model,
             "messages": [
@@ -41,6 +42,7 @@ class OllamaProvider(LLMProvider):
         async with httpx.AsyncClient(base_url=self.base_url, timeout=None) as client:
             async with client.stream("POST", "/api/chat", json=payload) as response:
                 response.raise_for_status()
+                # Ollama streams one JSON object per line.
                 async for line in response.aiter_lines():
                     if not line:
                         continue
@@ -58,6 +60,7 @@ class OllamaProvider(LLMProvider):
             data = response.json()
 
         models = [item["name"] for item in data.get("models", []) if item.get("name")]
+        # Show preferred local models first when they are installed.
         preferred = ["llama3", "qwen:7b", "llama3.2:3b"]
         ordered = preferred + [model for model in models if model not in preferred]
         return ordered or [settings.default_model]

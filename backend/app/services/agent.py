@@ -23,6 +23,7 @@ class ChatAgent:
     async def respond(self, payload: ChatRequest) -> ChatResponse:
         profile = await self.profile_service.get_profile()
         memory_note = await self._apply_memory_policy(payload.message)
+        # Normalize schema objects into the provider-facing message model.
         conversation = [
             Message(role=message.role, content=message.content)
             for message in payload.conversation
@@ -62,6 +63,7 @@ class ChatAgent:
         return await self.service.available_models()
 
     async def _apply_memory_policy(self, user_message: str) -> str:
+        # Explicit remember/forget commands are handled before auto-extraction.
         action, payload = detect_memory_command(user_message)
         if action == "remember" and payload:
             await self.profile_service.remember(payload)

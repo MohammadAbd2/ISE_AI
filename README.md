@@ -1,116 +1,161 @@
 # ISE AI Chatbot
 
-This project is a local-first AI chatbot architecture designed to look and behave like a ChatGPT-style application, while staying easy to extend later with tools, memory, and richer agent workflows.
+ISE AI is a local-first chatbot project with a React frontend and a FastAPI backend. It is designed to feel like a modern ChatGPT-style interface while keeping the internals simple to extend with new models, memory behavior, persistence, and future agent features.
 
-## Goals
+## Homepage Preview
 
-- React frontend with a familiar modern chat experience.
-- Python backend with a clear architecture instead of a single monolithic script.
-- Local model execution through Ollama by default.
-- No external API dependency at this stage.
-- Agent layer included now so the project can grow later without a redesign.
+![ISE AI homepage](assets/ISE_AI_HomePage.png)
+
+## What The Project Does
+
+- Streams chat responses from a local Ollama model.
+- Stores chat sessions and assistant profile data in MongoDB when available.
+- Falls back to in-memory storage when MongoDB is offline.
+- Lets the user manage custom instructions and long-term memory from the UI.
+- Keeps backend responsibilities split into API, service, provider, and schema layers.
+
+## Technology Stack
+
+- Frontend: React 18 + Vite
+- Backend: FastAPI + Pydantic
+- Model runtime: Ollama
+- Persistence: MongoDB with automatic memory fallback
+- HTTP client to Ollama: `httpx`
 
 ## Project Structure
 
 ```text
 ISE_AI/
+├── assets/
+│   └── ISE_AI_HomePage.png        # Screenshot used in the README
 ├── backend/
 │   ├── app/
-│   │   ├── api/         # FastAPI routes
-│   │   ├── core/        # Settings and shared configuration
-│   │   ├── models/      # Internal domain models
-│   │   ├── providers/   # LLM provider abstractions and Ollama adapter
-│   │   ├── schemas/     # Request and response validation
-│   │   └── services/    # Agent and chat orchestration
+│   │   ├── api/
+│   │   │   └── routes.py          # FastAPI endpoints
+│   │   ├── core/
+│   │   │   └── config.py          # Environment loading and shared settings
+│   │   ├── models/
+│   │   │   └── message.py         # Internal message model
+│   │   ├── providers/
+│   │   │   ├── base.py            # Provider contract
+│   │   │   └── ollama.py          # Ollama adapter
+│   │   ├── schemas/
+│   │   │   └── chat.py            # Request and response models
+│   │   ├── services/
+│   │   │   ├── agent.py           # Conversation policy and memory behavior
+│   │   │   ├── chat.py            # Prompt building and provider calls
+│   │   │   ├── history.py         # Chat session persistence
+│   │   │   └── profile.py         # Assistant profile and long-term memory
+│   │   └── main.py                # FastAPI application setup
 │   ├── .env.example
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── components/  # Chat UI building blocks
-│   │   └── styles/      # Global styling
+│   │   ├── components/
+│   │   │   ├── ChatLayout.jsx     # App frame, sidebar, and profile panel
+│   │   │   ├── Composer.jsx       # Message input and send/stop controls
+│   │   │   └── MessageList.jsx    # Chat transcript rendering
+│   │   ├── styles/
+│   │   │   └── global.css         # Global theme and responsive layout
+│   │   ├── App.jsx                # Main state and network orchestration
+│   │   └── main.jsx               # React entrypoint
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
-└── main.py              # Convenience backend runner
+└── main.py                        # Local backend runner
 ```
 
-## Backend Architecture
+## Architecture Overview
 
-The backend is intentionally split into layers:
+### Frontend
 
-- `api`: HTTP endpoints only.
-- `schemas`: Pydantic request and response contracts.
-- `services/chat.py`: Core chat generation flow.
-- `services/agent.py`: Agent orchestration layer.
-- `providers/base.py`: Interface for model providers.
-- `providers/ollama.py`: Default local model provider using Ollama.
+The frontend is a single React application that owns all UI state in `frontend/src/App.jsx`.
 
-### Why this architecture
+- `App.jsx` loads models, chat history, and the AI profile from the backend.
+- `ChatLayout.jsx` renders the main shell, history sidebar, model selector, and profile editor.
+- `MessageList.jsx` renders the conversation transcript and updates the last assistant message during streaming.
+- `Composer.jsx` handles the message input, `Enter` to send, and `Shift+Enter` for new lines.
 
-This gives you a stable foundation for future work:
+### Backend
 
-- Add new local or remote models without changing route logic.
-- Add tools inside the agent layer later.
-- Add memory or session storage without rewriting the provider.
-- Replace the single-agent flow with multi-agent routing when needed.
+The backend is split into layers so each part has one clear responsibility.
 
-## Frontend Architecture
+- `api/routes.py`: HTTP endpoints and response streaming.
+- `schemas/chat.py`: request and response validation models.
+- `services/agent.py`: conversation policy, memory command detection, and orchestration.
+- `services/chat.py`: prompt assembly and provider selection.
+- `services/history.py`: chat session persistence.
+- `services/profile.py`: assistant custom instructions and long-term memory persistence.
+- `providers/ollama.py`: communication with the Ollama HTTP API.
 
-The frontend uses React with a cyber-security-oriented interface inspired by ChatGPT, but styled for advanced technical users:
+## Request Flow
 
-- `ISE AI` logo centered at the top.
-- Model selector in the top-right area.
-- Assistant messages on the left and user messages on the right.
-- Enter sends the message, while Shift+Enter adds a new line.
-- While a response is generating, `Send` becomes `Stop`.
-- Responses stream incrementally instead of appearing all at once.
+### Streaming chat flow
 
-The visual direction uses cyan and blue tones with a hardened terminal-like atmosphere that fits Parrot OS and security-focused workflows.
+1. The user sends a message from the React composer.
+2. `frontend/src/App.jsx` calls `POST /api/chat/stream`.
+3. `backend/app/api/routes.py` creates or loads the chat session.
+4. `ChatAgent` applies memory rules and forwards the request to `ChatService`.
+5. `ChatService` builds the final message list, including system prompt, custom instructions, and saved memory.
+6. `OllamaProvider` calls the local Ollama server and streams tokens back.
+7. The backend emits newline-delimited JSON events.
+8. The frontend appends incoming tokens to the active assistant message.
+9. When streaming finishes, the backend stores the final assistant response in chat history.
 
-## Default Model Flow
+### Profile and memory flow
 
-1. The React frontend sends the user message and conversation history to `POST /api/chat/stream`.
-2. The FastAPI route passes the request to `ChatAgent`.
-3. `ChatAgent` delegates to `ChatService`.
-4. `ChatService` builds the final prompt sequence and selects the active model.
-5. `OllamaProvider` streams tokens from the local Ollama server.
-6. The frontend renders the reply as it arrives and can abort generation.
+1. The user edits custom instructions or memory entries in the sidebar.
+2. The frontend sends `PUT /api/ai/profile`.
+3. `ProfileService` stores the profile in MongoDB, or in memory if MongoDB is unavailable.
+4. Future prompts automatically include the stored profile data.
+
+## Persistence Model
+
+The project supports two storage modes:
+
+- `mongodb`: persistent storage for chat sessions and assistant profile data
+- `memory`: automatic fallback when MongoDB is not reachable
+
+This means the application can still run locally even if MongoDB is down, but history and memory will reset when the backend restarts in fallback mode.
+
+## Environment Configuration
+
+The backend reads environment values from:
+
+- `.env`
+- `backend/.env`
+- built-in defaults in `backend/app/core/config.py`
+
+Important variables:
+
+```env
+APP_NAME=ISE AI Chatbot
+ENVIRONMENT=development
+OLLAMA_BASE_URL=http://localhost:11434
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=ise_ai
+DEFAULT_MODEL=llama3
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
 
 ## Requirements
 
 - Python 3.11+
 - Node.js 18+
 - Ollama installed locally
-- MongoDB running locally
+- MongoDB installed locally if you want persistent storage
 
-## MongoDB Setup
+## Setup
 
-Start MongoDB before running the backend. Default configuration:
+### 1. Prepare Ollama
 
-```text
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=ise_ai
-```
-
-This is used for:
-
-- persisted chat history
-- session loading after refresh
-- deleting one chat or clearing all chat history
-
-## Ollama Setup
-
-Install or verify a default model locally:
+Install a local model if needed:
 
 ```bash
 ollama pull llama3
 ```
 
-You can later switch to another installed model by changing the backend default or passing a different model from the frontend.
-
-## Run The Backend
-
-Create a virtual environment, install dependencies, and start FastAPI:
+### 2. Configure the backend
 
 ```bash
 cd backend
@@ -118,7 +163,29 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-cd ..
+```
+
+### 3. Start MongoDB
+
+Default local configuration:
+
+```text
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=ise_ai
+```
+
+MongoDB is used for:
+
+- persisted chat history
+- loading previous sessions after refresh
+- storing assistant custom instructions
+- storing long-term memory entries
+
+### 4. Run the backend
+
+From the project root:
+
+```bash
 python main.py
 ```
 
@@ -134,7 +201,7 @@ Health check:
 GET http://localhost:8000/health
 ```
 
-## Run The Frontend
+### 5. Run the frontend
 
 ```bash
 cd frontend
@@ -148,9 +215,17 @@ Frontend default URL:
 http://localhost:5173
 ```
 
-## API Contract
+## API Overview
 
-### Streaming Chat Request
+### `POST /api/chat`
+
+Non-streaming chat endpoint that returns a full response body.
+
+### `POST /api/chat/stream`
+
+Streaming chat endpoint used by the UI.
+
+Request body:
 
 ```json
 {
@@ -166,34 +241,55 @@ http://localhost:5173
 }
 ```
 
-### Streaming Chat Events
+Streaming events:
 
-- `{"type":"meta","model":"llama3","session_id":"..."}`
+- `{"type":"meta","model":"llama3","session_id":"...","storage_mode":"mongodb","profile_storage_mode":"mongodb"}`
 - `{"type":"token","content":"Recursion"}`
 - `{"type":"token","content":" is when..."}`
 - `{"type":"done"}`
+- `{"type":"error","message":"..."}` when streaming fails
 
-### Models Endpoint
+### `GET /api/models`
 
-`GET /api/models`
+Returns installed Ollama model names.
 
-### Chat History Endpoints
+### Chat history endpoints
 
 - `GET /api/chats`
 - `GET /api/chats/{session_id}`
 - `DELETE /api/chats/{session_id}`
 - `DELETE /api/chats`
 
-## Next Development Steps
+### AI profile endpoints
 
-- Add streaming responses from Ollama to the UI.
-- Add tool calling inside the agent layer.
-- Add short-term and long-term memory with MongoDB collections.
-- Add tests for routes, services, and provider adapters.
-- Add authentication if the app becomes multi-user.
+- `GET /api/ai/profile`
+- `PUT /api/ai/profile`
+
+## Current Behavior
+
+- The frontend can stop an in-progress generation with `AbortController`.
+- Existing sessions are reloaded from the backend instead of trusting stale frontend state.
+- New chats are represented as a temporary draft session in the UI.
+- The assistant can detect simple remember/forget commands and update long-term memory automatically.
+
+## Why This Architecture Works
+
+- Provider logic is isolated, so a new model backend can be added without rewriting routes.
+- Memory and profile behavior are separated from raw chat generation.
+- Persistence logic is isolated from API handlers.
+- The frontend keeps a clear separation between layout, transcript rendering, and composer behavior.
+- The project can evolve toward tools, authentication, tests, and richer agent logic without a full redesign.
+
+## Suggested Next Improvements
+
+- Add automated tests for routes, service logic, and persistence fallbacks.
+- Move API URLs to frontend environment variables instead of hard-coded localhost values.
+- Add markdown rendering for assistant responses.
+- Add session rename support and timestamps in the UI.
+- Add explicit health checks for Ollama and MongoDB in the frontend.
 
 ## Notes
 
-- This version does not use external APIs.
-- The backend is prepared for later tool integration, but tools are not implemented yet.
-- The default provider is Ollama because it fits a local-first architecture well.
+- This project currently uses local infrastructure only.
+- Ollama is the default provider because it matches the local-first goal.
+- MongoDB is optional at runtime, but recommended for persistent history and memory.
