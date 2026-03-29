@@ -12,6 +12,9 @@ ISE AI is a local-first chatbot project with a React frontend and a FastAPI back
 - Stores chat sessions and assistant profile data in MongoDB when available.
 - Falls back to in-memory storage when MongoDB is offline.
 - Lets the user manage custom instructions and long-term memory from the UI.
+- Supports confirmation before destructive memory changes.
+- Supports three response effort levels: `low`, `medium`, and `high`.
+- Includes an internal agent layer that can use multiple built-in tools.
 - Keeps backend responsibilities split into API, service, provider, and schema layers.
 
 ## Technology Stack
@@ -82,10 +85,11 @@ The backend is split into layers so each part has one clear responsibility.
 
 - `api/routes.py`: HTTP endpoints and response streaming.
 - `schemas/chat.py`: request and response validation models.
-- `services/agent.py`: conversation policy, memory command detection, and orchestration.
+- `services/agent.py`: conversation policy, memory confirmation flow, and orchestration.
 - `services/chat.py`: prompt assembly and provider selection.
 - `services/history.py`: chat session persistence.
 - `services/profile.py`: assistant custom instructions and long-term memory persistence.
+- `services/tools.py`: built-in tools the agent can call when needed.
 - `providers/ollama.py`: communication with the Ollama HTTP API.
 
 ## Request Flow
@@ -96,11 +100,12 @@ The backend is split into layers so each part has one clear responsibility.
 2. `frontend/src/App.jsx` calls `POST /api/chat/stream`.
 3. `backend/app/api/routes.py` creates or loads the chat session.
 4. `ChatAgent` applies memory rules and forwards the request to `ChatService`.
-5. `ChatService` builds the final message list, including system prompt, custom instructions, and saved memory.
-6. `OllamaProvider` calls the local Ollama server and streams tokens back.
-7. The backend emits newline-delimited JSON events.
-8. The frontend appends incoming tokens to the active assistant message.
-9. When streaming finishes, the backend stores the final assistant response in chat history.
+5. The agent can answer directly, request confirmation for destructive memory changes, or call multiple built-in tools.
+6. `ChatService` builds the final message list, including system prompt, response effort, custom instructions, saved memory, and any tool output.
+7. `OllamaProvider` calls the local Ollama server and streams tokens back.
+8. The backend emits newline-delimited JSON events.
+9. The frontend appends incoming tokens to the active assistant message.
+10. When streaming finishes, the backend stores the final assistant response in chat history.
 
 ### Profile and memory flow
 
@@ -108,6 +113,14 @@ The backend is split into layers so each part has one clear responsibility.
 2. The frontend sends `PUT /api/ai/profile`.
 3. `ProfileService` stores the profile in MongoDB, or in memory if MongoDB is unavailable.
 4. Future prompts automatically include the stored profile data.
+
+### Confirmation flow for destructive memory actions
+
+1. If the user asks to clear or delete saved memory, the agent does not delete it immediately.
+2. The backend stores a pending action on the active chat session.
+3. The assistant asks for confirmation.
+4. The user replies `yes` to proceed or `no` to cancel.
+5. Only after confirmation does the backend delete the requested memory.
 
 ## Persistence Model
 
@@ -231,6 +244,7 @@ Request body:
 {
   "message": "Explain recursion simply",
   "model": "llama3",
+  "effort": "medium",
   "session_id": "optional-existing-chat-id",
   "conversation": [
     {
@@ -270,7 +284,11 @@ Returns installed Ollama model names.
 - The frontend can stop an in-progress generation with `AbortController`.
 - Existing sessions are reloaded from the backend instead of trusting stale frontend state.
 - New chats are represented as a temporary draft session in the UI.
-- The assistant can detect simple remember/forget commands and update long-term memory automatically.
+- The assistant can detect remember, show, and delete-memory requests.
+- The assistant asks for confirmation before deleting saved memory.
+- The assistant updates structured memory such as user name and assistant name automatically.
+- The UI exposes low, medium, and high response effort levels.
+- The agent can use multiple built-in tools such as memory inspection, profile lookup, model listing, and time lookup.
 
 ## Why This Architecture Works
 

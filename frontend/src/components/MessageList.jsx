@@ -1,4 +1,29 @@
-function MessageBubble({ role, content, messageKey, copiedKey, onCopy }) {
+import RichMessage from "./RichMessage";
+
+function AttachmentList({ attachments }) {
+  if (!attachments || attachments.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="message-attachments">
+      {attachments.map((attachment) => (
+        <span key={attachment.id} className="message-attachment-chip">
+          {attachment.kind.toUpperCase()} · {attachment.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MessageBubbleWithAttachments({
+  role,
+  content,
+  attachments,
+  messageKey,
+  copiedKey,
+  onCopy,
+}) {
   const isAssistant = role === "assistant";
 
   return (
@@ -15,26 +40,23 @@ function MessageBubble({ role, content, messageKey, copiedKey, onCopy }) {
             {copiedKey === messageKey ? "Copied" : "Copy"}
           </button>
         </div>
-        <p>{content || " "}</p>
+        <AttachmentList attachments={attachments} />
+        <RichMessage content={content || " "} />
       </div>
     </article>
   );
 }
 
-export default function MessageList({
-  messages,
-  isLoading,
-  copiedKey,
-  onCopyMessage,
-}) {
+export default function MessageList({ messages, isLoading, copiedKey, onCopyMessage }) {
   return (
     <section className="message-list">
       {/* Rendering order is preserved so streaming text can update the last assistant bubble in place. */}
       {messages.map((message, index) => (
-        <MessageBubble
+        <MessageBubbleWithAttachments
           key={`${message.role}-${index}`}
           role={message.role}
           content={message.content}
+          attachments={message.attachments || []}
           messageKey={`${message.role}-${index}`}
           copiedKey={copiedKey}
           onCopy={() => onCopyMessage(message, index)}

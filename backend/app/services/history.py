@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from backend.app.core.config import settings
-from backend.app.schemas.chat import ChatMessage
+from backend.app.schemas.chat import ChatAttachment, ChatMessage
 
 
 def _utc_now() -> datetime:
@@ -85,6 +85,7 @@ class HistoryService:
             "title": _session_title(message),
             "model": model,
             "messages": [],
+            "pending_action": None,
             "created_at": now,
             "updated_at": now,
         }
@@ -110,6 +111,7 @@ class HistoryService:
         role: str,
         content: str,
         model: str,
+        attachments: list[dict] | None = None,
     ) -> None:
         await asyncio.to_thread(
             self._append_message_sync,
@@ -117,6 +119,7 @@ class HistoryService:
             role,
             content,
             model,
+            attachments,
         )
 
     def _append_message_sync(
@@ -125,13 +128,20 @@ class HistoryService:
         role: str,
         content: str,
         model: str,
+        attachments: list[dict] | None = None,
     ) -> None:
         if not self._mongo_available or self.collection is None:
             with self._lock:
                 document = self._memory_sessions.get(session_id)
                 if document is None:
                     return
-                document["messages"].append({"role": role, "content": content})
+                document["messages"].append(
+                    {
+                        "role": role,
+                        "content": content,
+                        "attachments": attachments or [],
+                    }
+                )
                 document["updated_at"] = _utc_now()
                 document["model"] = model
             return
@@ -143,7 +153,13 @@ class HistoryService:
             self.collection.update_one(
                 {"_id": object_id},
                 {
-                    "$push": {"messages": {"role": role, "content": content}},
+                    "$push": {
+                        "messages": {
+                            "role": role,
+                            "content": content,
+                            "attachments": attachments or [],
+                        }
+                    },
                     "$set": {"updated_at": now, "model": model},
                 },
             )
@@ -176,6 +192,48 @@ class HistoryService:
         except PyMongoError:
             self._mongo_available = False
 
+    async def get_pending_action(self, session_id: str) -> dict | None:
+        return await asyncio.to_thread(self._get_pending_action_sync, session_id)
+
+    def _get_pending_action_sync(self, session_id: str) -> dict | None:
+        if not self._mongo_available or self.collection is None:
+            with self._lock:
+                document = self._memory_sessions.get(session_id)
+                return document.get("pending_action") if document else None
+        object_id = self._object_id(session_id)
+        if object_id is None:
+            return None
+        try:
+            document = self.collection.find_one(
+                {"_id": object_id},
+                {"pending_action": 1},
+            )
+            return document.get("pending_action") if document else None
+        except PyMongoError:
+            self._mongo_available = False
+            return self._get_pending_action_sync(session_id)
+
+    async def set_pending_action(self, session_id: str, action: dict | None) -> None:
+        await asyncio.to_thread(self._set_pending_action_sync, session_id, action)
+
+    def _set_pending_action_sync(self, session_id: str, action: dict | None) -> None:
+        if not self._mongo_available or self.collection is None:
+            with self._lock:
+                document = self._memory_sessions.get(session_id)
+                if document is not None:
+                    document["pending_action"] = action
+            return
+        object_id = self._object_id(session_id)
+        if object_id is None:
+            return
+        try:
+            self.collection.update_one(
+                {"_id": object_id},
+                {"$set": {"pending_action": action}},
+            )
+        except PyMongoError:
+            self._mongo_available = False
+
     def storage_mode(self) -> str:
         return "mongodb" if self._mongo_available and self.collection is not None else "memory"
 
@@ -198,7 +256,14 @@ class HistoryService:
             "model": document.get("model", settings.default_model),
             "updated_at": document.get("updated_at", _utc_now()).isoformat(),
             "messages": [
-                ChatMessage(role=item["role"], content=item["content"])
+                ChatMessage(
+                    role=item["role"],
+                    content=item["content"],
+                    attachments=[
+                        ChatAttachment(**attachment)
+                        for attachment in item.get("attachments", [])
+                    ],
+                )
                 for item in document.get("messages", [])
             ],
         }

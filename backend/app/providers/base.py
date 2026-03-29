@@ -8,7 +8,12 @@ class LLMProvider(ABC):
     """Common contract for any local or remote model provider."""
 
     @abstractmethod
-    async def generate(self, messages: list[Message], model: str) -> str:
+    async def generate(
+        self,
+        messages: list[Message],
+        model: str,
+        options: dict | None = None,
+    ) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -16,6 +21,7 @@ class LLMProvider(ABC):
         self,
         messages: list[Message],
         model: str,
+        options: dict | None = None,
     ) -> AsyncIterator[str]:
         raise NotImplementedError
 

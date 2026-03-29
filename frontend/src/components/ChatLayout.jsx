@@ -2,6 +2,8 @@ export default function ChatLayout({
   activeModel,
   models,
   onModelChange,
+  responseEffort,
+  onResponseEffortChange,
   sessions,
   currentSessionId,
   messageCount,
@@ -56,6 +58,17 @@ export default function ChatLayout({
                 </option>
               ))}
             </select>
+            <div className="effort-picker">
+              <select
+                id="effort-select"
+                value={responseEffort}
+                onChange={(event) => onResponseEffortChange(event.target.value)}
+              >
+                <option value="low">Low (Faster)</option>
+                <option value="medium">Medium</option>
+                <option value="high">High (Longer)</option>
+              </select>
+            </div>
             <button type="button" className="ghost-button" onClick={onResetChat}>
               New chat
             </button>
@@ -130,6 +143,9 @@ export default function ChatLayout({
                 rows={8}
               />
             </label>
+            <div className="profile-hint">
+              Ask the assistant to show memory, remember facts, or request deletion. Destructive memory changes now require chat confirmation.
+            </div>
             <button type="button" className="ghost-button" onClick={onSaveProfile}>
               Save profile
             </button>

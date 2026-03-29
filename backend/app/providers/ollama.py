@@ -11,9 +11,15 @@ class OllamaProvider(LLMProvider):
     def __init__(self, base_url: str | None = None) -> None:
         self.base_url = base_url or settings.ollama_base_url
 
-    def _build_payload(self, messages: list[Message], model: str, stream: bool) -> dict:
+    def _build_payload(
+        self,
+        messages: list[Message],
+        model: str,
+        stream: bool,
+        options: dict | None = None,
+    ) -> dict:
         # Translate the internal message model into Ollama's chat payload shape.
-        return {
+        payload = {
             "model": model,
             "messages": [
                 {"role": message.role, "content": message.content}
@@ -21,9 +27,22 @@ class OllamaProvider(LLMProvider):
             ],
             "stream": stream,
         }
+        if options:
+            payload["options"] = options
+        return payload
 
-    async def generate(self, messages: list[Message], model: str) -> str:
-        payload = self._build_payload(messages=messages, model=model, stream=False)
+    async def generate(
+        self,
+        messages: list[Message],
+        model: str,
+        options: dict | None = None,
+    ) -> str:
+        payload = self._build_payload(
+            messages=messages,
+            model=model,
+            stream=False,
+            options=options,
+        )
 
         async with httpx.AsyncClient(base_url=self.base_url, timeout=120.0) as client:
             response = await client.post("/api/chat", json=payload)
@@ -36,8 +55,14 @@ class OllamaProvider(LLMProvider):
         self,
         messages: list[Message],
         model: str,
+        options: dict | None = None,
     ) -> AsyncIterator[str]:
-        payload = self._build_payload(messages=messages, model=model, stream=True)
+        payload = self._build_payload(
+            messages=messages,
+            model=model,
+            stream=True,
+            options=options,
+        )
 
         async with httpx.AsyncClient(base_url=self.base_url, timeout=None) as client:
             async with client.stream("POST", "/api/chat", json=payload) as response:

@@ -12,10 +12,13 @@ from backend.app.schemas.chat import (
     ChatResponse,
     ChatSessionDetail,
     ChatSessionsResponse,
+    FileUploadRequest,
+    FileUploadResponse,
     ModelsResponse,
 )
 from backend.app.services.agent import ChatAgent
 from backend.app.services.chat import ChatService, get_chat_service
+from backend.app.services.documents import DocumentService, get_document_service
 from backend.app.services.history import HistoryService, get_history_service
 from backend.app.services.profile import ProfileService, get_profile_service
 
@@ -33,10 +36,11 @@ def health_check() -> dict[str, str]:
 async def chat(
     payload: ChatRequest,
     service: ChatService = Depends(get_chat_service),
+    history: HistoryService = Depends(get_history_service),
     profile: ProfileService = Depends(get_profile_service),
 ) -> ChatResponse:
-    agent = ChatAgent(service=service, profile_service=profile)
-    return await agent.respond(payload)
+    agent = ChatAgent(service=service, profile_service=profile, history_service=history)
+    return await agent.respond(payload, session_id=payload.session_id)
 
 
 @router.post("/api/chat/stream")
@@ -45,23 +49,41 @@ async def stream_chat(
     service: ChatService = Depends(get_chat_service),
     history: HistoryService = Depends(get_history_service),
     profile: ProfileService = Depends(get_profile_service),
+    documents: DocumentService = Depends(get_document_service),
 ) -> StreamingResponse:
-    agent = ChatAgent(service=service, profile_service=profile)
+    agent = ChatAgent(
+        service=service,
+        profile_service=profile,
+        history_service=history,
+    )
     selected_model = payload.model or settings.default_model
     # Existing sessions keep their stored message history on the server side.
+    is_draft_session = bool(payload.session_id and payload.session_id.startswith("draft:"))
     session = (
         await history.get_session(payload.session_id)
-        if payload.session_id
+        if payload.session_id and not is_draft_session
         else await history.create_session(payload.message, selected_model)
     )
     if session is None:
         raise HTTPException(status_code=404, detail="Chat session not found")
+    if is_draft_session and payload.session_id:
+        await documents.reassign_session(payload.session_id, session["id"])
 
     conversation = [
         message for message in session["messages"] if message.role != "system"
     ]
-    await history.append_message(session["id"], "user", payload.message, selected_model)
-    stream, model = await agent.stream_response(payload, conversation=conversation)
+    await history.append_message(
+        session["id"],
+        "user",
+        payload.message,
+        selected_model,
+        attachments=[attachment.model_dump() for attachment in payload.attachments],
+    )
+    stream, model = await agent.stream_response(
+        payload,
+        conversation=conversation,
+        session_id=session["id"],
+    )
 
     async def event_stream():
         chunks: list[str] = []
@@ -165,4 +187,26 @@ async def update_ai_profile(
         custom_instructions=data.get("custom_instructions", ""),
         memory="\n".join(data.get("memory", [])),
         storage_mode=profile.storage_mode(),
+    )
+
+
+@router.post("/api/files/upload", response_model=FileUploadResponse)
+async def upload_file(
+    payload: FileUploadRequest,
+    documents: DocumentService = Depends(get_document_service),
+) -> FileUploadResponse:
+    try:
+        attachment = await documents.ingest_base64_upload(
+            session_id=payload.session_id,
+            filename=payload.filename,
+            content_type=payload.content_type,
+            data_base64=payload.data_base64,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"File upload failed: {exc}") from exc
+    return FileUploadResponse(
+        attachment=attachment,
+        storage_mode=documents.storage_mode(),
     )

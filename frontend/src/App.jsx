@@ -7,8 +7,33 @@ const API_URL = "http://localhost:8000/api/chat/stream";
 const MODELS_URL = "http://localhost:8000/api/models";
 const CHATS_URL = "http://localhost:8000/api/chats";
 const PROFILE_URL = "http://localhost:8000/api/ai/profile";
+const UPLOAD_URL = "http://localhost:8000/api/files/upload";
 const DEFAULT_MODEL = "llama3";
 const DRAFT_SESSION_ID = "draft-chat";
+const DEFAULT_EFFORT = "medium";
+
+function createDraftContextId() {
+  if (globalThis.crypto?.randomUUID) {
+    return `draft:${globalThis.crypto.randomUUID()}`;
+  }
+  return `draft:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string") {
+        reject(new Error("File could not be read"));
+        return;
+      }
+      resolve(dataUrl.split(",")[1] || "");
+    };
+    reader.onerror = () => reject(new Error("File upload failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const initialMessages = [
   {
@@ -23,10 +48,14 @@ export default function App() {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [activeModel, setActiveModel] = useState(DEFAULT_MODEL);
+  const [responseEffort, setResponseEffort] = useState(DEFAULT_EFFORT);
   const [models, setModels] = useState([DEFAULT_MODEL, "qwen:7b", "llama3.2:3b"]);
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [draftContextId, setDraftContextId] = useState(createDraftContextId);
+  const [pendingAttachments, setPendingAttachments] = useState([]);
   const [customInstructions, setCustomInstructions] = useState("");
   const [memoryText, setMemoryText] = useState("");
   const [storageMode, setStorageMode] = useState("memory");
@@ -83,6 +112,8 @@ export default function App() {
     abortRef.current = null;
     setMessages(initialMessages);
     setCurrentSessionId(null);
+    setDraftContextId(createDraftContextId());
+    setPendingAttachments([]);
     setInput("");
     setError("");
     setIsLoading(false);
@@ -132,6 +163,7 @@ export default function App() {
       setCurrentSessionId(data.id);
       setActiveModel(data.model || DEFAULT_MODEL);
       setMessages(data.messages.length > 0 ? data.messages : initialMessages);
+      setPendingAttachments([]);
       setError("");
     } catch {
       setError("Failed to load chat history.");
@@ -209,14 +241,62 @@ export default function App() {
     }
   }
 
+  async function handleUploadFiles(files) {
+    setIsUploading(true);
+    setError("");
+    try {
+      const uploaded = [];
+      for (const file of files) {
+        const dataBase64 = await readFileAsBase64(file);
+        const response = await fetch(UPLOAD_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: currentSessionId || draftContextId,
+            filename: file.name,
+            content_type: file.type || "application/octet-stream",
+            data_base64: dataBase64,
+          }),
+        });
+        if (!response.ok) {
+          let details = "Upload failed";
+          try {
+            const errorData = await response.json();
+            details = errorData.detail || details;
+          } catch {
+            details = await response.text();
+          }
+          throw new Error(details || "Upload failed");
+        }
+        const data = await response.json();
+        uploaded.push(data.attachment);
+      }
+      setPendingAttachments((current) => [...current, ...uploaded]);
+    } catch (uploadError) {
+      setError(uploadError.message || "File upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleRemoveAttachment(attachmentId) {
+    setPendingAttachments((current) =>
+      current.filter((attachment) => attachment.id !== attachmentId),
+    );
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     const value = input.trim();
-    if (!value || isLoading) {
+    const requestMessage = value || "Please analyze the uploaded files.";
+    if ((!value && pendingAttachments.length === 0) || isLoading || isUploading) {
       return;
     }
 
-    const nextMessages = [...messages, { role: "user", content: value }];
+    const nextMessages = [
+      ...messages,
+      { role: "user", content: value || "Uploaded files", attachments: pendingAttachments },
+    ];
     // Draft chats send local conversation context; persisted sessions reload context from the backend.
     const conversation = currentSessionId && currentSessionId !== DRAFT_SESSION_ID
       ? []
@@ -225,6 +305,8 @@ export default function App() {
     setIsLoading(true);
     setError("");
     const assistantIndex = nextMessages.length;
+    const attachmentsForRequest = pendingAttachments;
+    setPendingAttachments([]);
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
 
     try {
@@ -235,10 +317,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          message: value,
+          message: requestMessage,
           model: activeModel,
+          effort: responseEffort,
+          attachments: attachmentsForRequest,
           conversation,
-          session_id: currentSessionId && currentSessionId !== DRAFT_SESSION_ID ? currentSessionId : null,
+          session_id: currentSessionId || draftContextId,
         }),
       });
 
@@ -374,6 +458,8 @@ export default function App() {
       activeModel={activeModel}
       models={models}
       onModelChange={setActiveModel}
+      responseEffort={responseEffort}
+      onResponseEffortChange={setResponseEffort}
       sessions={displayedSessions}
       currentSessionId={currentSessionId || DRAFT_SESSION_ID}
       messageCount={messages.length}
@@ -401,8 +487,12 @@ export default function App() {
         onChange={setInput}
         onSubmit={handleSubmit}
         onStop={stopGeneration}
+        onUploadFiles={handleUploadFiles}
+        onRemoveAttachment={handleRemoveAttachment}
+        attachments={pendingAttachments}
         disabled={false}
         isLoading={isLoading}
+        isUploading={isUploading}
         error={error}
       />
     </ChatLayout>
