@@ -14,6 +14,7 @@ from zipfile import ZipFile
 
 from backend.app.schemas.chat import ChatAttachment
 from backend.app.services.artifacts import ArtifactService, get_artifact_service
+from backend.app.services.image_intel import max_image_bytes_for_metadata
 from backend.app.services.vision import VisionService, get_vision_service
 
 
@@ -150,20 +151,36 @@ class DocumentService:
         )
         metadata: dict[str, str | int | float] = dict(media_info)
         header = self._format_media_header("image", filename, media_info)
+        b64 = base64.b64encode(binary).decode("ascii")
+        if len(binary) <= max_image_bytes_for_metadata():
+            metadata["image_base64"] = b64
         try:
-            summary, model = await self.vision_service.analyze_images(
-                images_base64=[base64.b64encode(binary).decode("ascii")],
-                prompt=prompt,
+            summary, model = await asyncio.wait_for(
+                self.vision_service.analyze_images(
+                    images_base64=[b64],
+                    prompt=prompt,
+                ),
+                timeout=30.0,
             )
             metadata["analysis_model"] = model
             content = f"{header}\nVision summary:\n{summary}"
+        except asyncio.TimeoutError:
+            metadata["analysis_error"] = "vision analysis timeout"
+            content = (
+                f"{header}\n"
+                "Vision summary:\n"
+                "Image analysis took too long. The image is stored but analysis was skipped. "
+                "The assistant will still have access to the image."
+            )
         except Exception as exc:
             metadata["analysis_error"] = str(exc)
             content = (
                 f"{header}\n"
                 "Vision summary:\n"
-                "Automatic image analysis is unavailable right now. The upload is still stored "
-                "and can be retried later when a vision-capable Ollama model is available."
+                "Automatic image analysis is unavailable: Ollama has no vision model selected. "
+                "Install one (for example `ollama pull llava` or `ollama pull moondream`), "
+                "restart the backend, or set OLLAMA_VISION_MODEL to the exact model tag (e.g. llava:7b). "
+                "The file is still stored and you can retry after that."
             )
         return content, metadata
 
@@ -195,13 +212,24 @@ class DocumentService:
             "the result is based on sampled frames and may miss audio-only details."
         )
         try:
-            summary, model = await self.vision_service.analyze_images(
-                images_base64=sampled_frames,
-                prompt=prompt,
+            summary, model = await asyncio.wait_for(
+                self.vision_service.analyze_images(
+                    images_base64=sampled_frames,
+                    prompt=prompt,
+                ),
+                timeout=30.0,
             )
             metadata["analysis_model"] = model
             metadata["sampled_frame_count"] = len(sampled_frames)
             content = f"{header}\nVideo analysis summary:\n{summary}"
+        except asyncio.TimeoutError:
+            metadata["analysis_error"] = "vision analysis timeout"
+            content = (
+                f"{header}\n"
+                "Video analysis summary:\n"
+                "Video analysis took too long. The video is stored but analysis was skipped. "
+                "The assistant will still have access to the video frames."
+            )
         except Exception as exc:
             metadata["analysis_error"] = str(exc)
             content = (
