@@ -40,6 +40,8 @@ const initialMessages = [
     role: "assistant",
     content:
       "ISE AI secure channel established. Select a model and start the session.",
+    search_logs: [],
+    image_logs: [],
   },
 ];
 
@@ -79,6 +81,19 @@ export default function App() {
     );
   }
 
+  function appendImageLog(messageIndex, log) {
+    setMessages((current) =>
+      current.map((message, index) => {
+        if (index !== messageIndex) {
+          return message;
+        }
+        const existingLogs = Array.isArray(message.image_logs) ? message.image_logs : [];
+        const nextLogs = [...existingLogs, log];
+        return { ...message, image_logs: nextLogs };
+      }),
+    );
+  }
+
   async function handleStreamEvent(data, assistantIndex) {
     if (data.type === "meta" && data.model) {
       setActiveModel(data.model);
@@ -94,6 +109,9 @@ export default function App() {
     }
     if (data.type === "search" && data.log) {
       appendSearchLog(assistantIndex, data.log);
+    }
+    if (data.type === "images" && data.log) {
+      appendImageLog(assistantIndex, data.log);
     }
     if (data.type === "token") {
       setMessages((current) =>
@@ -209,7 +227,15 @@ export default function App() {
       const data = await response.json();
       setCurrentSessionId(data.id);
       setActiveModel(data.model || DEFAULT_MODEL);
-      setMessages(data.messages.length > 0 ? data.messages : initialMessages);
+      setMessages(
+        data.messages.length > 0
+          ? data.messages.map((m) => ({
+              ...m,
+              search_logs: m.search_logs || [],
+              image_logs: m.image_logs || [],
+            }))
+          : initialMessages,
+      );
       setPendingAttachments([]);
       setError("");
     } catch {
@@ -354,7 +380,10 @@ export default function App() {
     const assistantIndex = nextMessages.length;
     const attachmentsForRequest = pendingAttachments;
     setPendingAttachments([]);
-    setMessages([...nextMessages, { role: "assistant", content: "", search_logs: [] }]);
+    setMessages([
+      ...nextMessages,
+      { role: "assistant", content: "", search_logs: [], image_logs: [] },
+    ]);
 
     try {
       const controller = new AbortController();

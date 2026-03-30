@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from functools import lru_cache
+import asyncio
 import html
 from html.parser import HTMLParser
 import re
@@ -10,6 +11,7 @@ import httpx
 
 from backend.app.schemas.chat import SearchSource, WebSearchLog
 from backend.app.services.artifacts import ArtifactService, get_artifact_service
+from backend.app.services.url_content import UrlContentService, get_url_content_service
 
 
 class _DuckDuckGoResultParser(HTMLParser):
@@ -132,8 +134,18 @@ class _VisibleTextParser(HTMLParser):
 class SearchService:
     """Web search adapter with multi-engine fallback and grounded source extraction."""
 
-    def __init__(self, artifact_service: ArtifactService) -> None:
+    _ENRICH_TOP_N = 3
+    _DEEP_PAGE_CHARS = 2800
+    _SHALLOW_PAGE_CHARS = 560
+    _SNIPPET_FALLBACK_CHARS = 520
+
+    def __init__(
+        self,
+        artifact_service: ArtifactService,
+        url_content_service: UrlContentService | None = None,
+    ) -> None:
         self.artifact_service = artifact_service
+        self._url_content = url_content_service
 
     def should_search(self, user_message: str) -> bool:
         lower = user_message.lower()
@@ -184,16 +196,20 @@ class SearchService:
 
     async def search(self, session_id: str, query: str, limit: int = 5) -> WebSearchLog:
         prepared_query = self._prepare_query(query)
-        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=40.0, follow_redirects=True) as client:
             instant_data = await self._duckduckgo_instant_answer(client, prepared_query)
-            ddg_results = await self._duckduckgo_html_results(client, prepared_query, limit * 2)
-            bing_results = await self._bing_rss_results(client, prepared_query, limit * 2)
+            fetch_n = max(limit * 4, 12)
+            ddg_results = await self._duckduckgo_html_results(client, prepared_query, fetch_n)
+            bing_results = await self._bing_rss_results(client, prepared_query, fetch_n)
+            ddg_results = self._filter_engine_results(ddg_results, prepared_query)
+            bing_results = self._filter_engine_results(bing_results, prepared_query)
 
             sources = await self._merge_sources(
                 client=client,
                 instant_data=instant_data,
                 result_sets=[("duckduckgo", ddg_results), ("bing", bing_results)],
                 limit=limit,
+                prepared_query=prepared_query,
             )
 
         provider = self._provider_label(ddg_results, bing_results)
@@ -250,7 +266,7 @@ class SearchService:
             f"Searched at: {log.searched_at}",
             f"Search provider: {log.provider}",
             (
-                "Instruction: Answer strictly from these retrieved results. "
+                "Instruction: Answer strictly from these retrieved results (snippet and any page excerpt). "
                 "Do not invent numbers or claim an exact value unless a source below supports it."
             ),
         ]
@@ -263,7 +279,12 @@ class SearchService:
         for source in log.sources:
             source_line = f"- {source.title} ({source.url})"
             if source.snippet:
-                source_line += f"\n  {source.snippet}"
+                source_line += f"\n  Snippet: {source.snippet}"
+            if source.page_excerpt:
+                clip = source.page_excerpt[:3200]
+                if len(source.page_excerpt) > 3200:
+                    clip += "…"
+                source_line += f"\n  Page excerpt: {clip}"
             lines.append(source_line)
         return "\n".join(lines)
 
@@ -282,17 +303,21 @@ class SearchService:
         instant_data: dict,
         result_sets: list[tuple[str, list[dict[str, str]]]],
         limit: int,
+        prepared_query: str = "",
     ) -> list[SearchSource]:
         sources: list[SearchSource] = []
         seen_urls: set[str] = set()
 
         instant_url = self._normalize_result_url(instant_data.get("AbstractURL", ""))
         instant_text = (instant_data.get("AbstractText") or "").strip()
-        if instant_url and instant_text:
+        instant_heading = (instant_data.get("Heading") or "Answer").strip()
+        if instant_url and instant_text and not self._is_junk_search_result(
+            instant_url, instant_heading, instant_text, prepared_query
+        ):
             seen_urls.add(instant_url)
             sources.append(
                 SearchSource(
-                    title=(instant_data.get("Heading") or "Answer").strip(),
+                    title=instant_heading,
                     url=instant_url,
                     snippet=instant_text,
                     domain=self._extract_domain(instant_url),
@@ -304,21 +329,109 @@ class SearchService:
                 normalized_url = self._normalize_result_url(result.get("url", ""))
                 if not normalized_url or normalized_url in seen_urls:
                     continue
-                seen_urls.add(normalized_url)
+                title = (result.get("title") or normalized_url).strip()
                 snippet = (result.get("snippet") or "").strip()
-                if not snippet:
-                    snippet = await self._fetch_result_excerpt(client, normalized_url)
+                if self._is_junk_search_result(normalized_url, title, snippet, prepared_query):
+                    continue
+                seen_urls.add(normalized_url)
                 sources.append(
                     SearchSource(
-                        title=(result.get("title") or normalized_url).strip(),
+                        title=title,
                         url=normalized_url,
                         snippet=snippet,
                         domain=self._extract_domain(normalized_url),
                     )
                 )
                 if len(sources) >= limit:
-                    return sources[:limit]
-        return sources[:limit]
+                    trimmed = sources[:limit]
+                    await self._parallel_enrich_sources(client, trimmed)
+                    return trimmed
+        trimmed = sources[:limit]
+        await self._parallel_enrich_sources(client, trimmed)
+        return trimmed
+
+    def _should_skip_enrich_url(self, url: str) -> bool:
+        try:
+            host = urlparse(url).netloc.lower()
+        except Exception:
+            return True
+        if not host:
+            return True
+        for block in ("facebook.", "instagram.", "linkedin.", "twitter.", "x.com"):
+            if block in host:
+                return True
+        return False
+
+    async def _parallel_enrich_sources(
+        self,
+        client: httpx.AsyncClient,
+        sources: list[SearchSource],
+    ) -> None:
+        if not sources:
+            return
+        coros = []
+        indices: list[int] = []
+        for i, src in enumerate(sources):
+            if self._should_skip_enrich_url(src.url):
+                continue
+            deep = i < self._ENRICH_TOP_N
+            needs_snippet = not (src.snippet or "").strip()
+            if not deep and not needs_snippet:
+                continue
+            indices.append(i)
+            coros.append(
+                self._enrich_one_source(
+                    client,
+                    src.url,
+                    deep=deep,
+                    needs_snippet=needs_snippet,
+                )
+            )
+        if not coros:
+            return
+        outcomes = await asyncio.gather(*coros, return_exceptions=True)
+        for index, outcome in zip(indices, outcomes, strict=True):
+            if isinstance(outcome, BaseException):
+                continue
+            page_ex, snippet_fb = outcome
+            target = sources[index]
+            if page_ex:
+                target.page_excerpt = page_ex
+            if not (target.snippet or "").strip() and snippet_fb:
+                target.snippet = snippet_fb[: self._SNIPPET_FALLBACK_CHARS]
+
+    async def _enrich_one_source(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        deep: bool,
+        needs_snippet: bool,
+    ) -> tuple[str, str]:
+        if self._url_content:
+            if deep:
+                text = await self._url_content.summarize_url_for_search(
+                    url, client, max_chars=self._DEEP_PAGE_CHARS
+                )
+                snippet_fb = (
+                    text[: self._SHALLOW_PAGE_CHARS].strip() if needs_snippet and text else ""
+                )
+                return (text, snippet_fb)
+            if needs_snippet:
+                host = urlparse(url).netloc.lower()
+                cap = 900 if ("youtube.com" in host or "youtu.be" in host) else self._SHALLOW_PAGE_CHARS + 240
+                text = await self._url_content.summarize_url_for_search(url, client, max_chars=cap)
+                return ("", (text[: self._SNIPPET_FALLBACK_CHARS].strip() if text else ""))
+            return ("", "")
+
+        if deep:
+            text = await self._fetch_visible_text(client, url, self._DEEP_PAGE_CHARS)
+            snippet_fb = text[: self._SHALLOW_PAGE_CHARS].strip() if needs_snippet and text else ""
+            return (text, snippet_fb)
+        if needs_snippet:
+            text = await self._fetch_visible_text(client, url, self._SHALLOW_PAGE_CHARS)
+            return ("", (text[: self._SNIPPET_FALLBACK_CHARS].strip() if text else ""))
+        return ("", "")
 
     async def _duckduckgo_instant_answer(self, client: httpx.AsyncClient, query: str) -> dict:
         params = urlencode(
@@ -384,7 +497,7 @@ class SearchService:
                 break
         return results
 
-    async def _fetch_result_excerpt(self, client: httpx.AsyncClient, url: str) -> str:
+    async def _fetch_visible_text(self, client: httpx.AsyncClient, url: str, max_chars: int) -> str:
         try:
             response = await client.get(url, headers={"User-Agent": "ISE-AI/1.0"})
             response.raise_for_status()
@@ -397,14 +510,13 @@ class SearchService:
 
         parser = _VisibleTextParser()
         parser.feed(response.text)
-        title = " ".join(parser.title_parts).strip()
-        body = re.sub(r"\s+", " ", " ".join(parser.text_parts)).strip()
+        title = html.unescape(" ".join(parser.title_parts)).strip()
+        body = html.unescape(" ".join(parser.text_parts)).strip()
+        body = re.sub(r"\s+", " ", body)
         if not body:
-            return title[:280]
-        excerpt = body[:480]
-        if title:
-            return f"{title}: {excerpt}"
-        return excerpt
+            return title[:max_chars] if title else ""
+        combined = f"{title}: {body}" if title else body
+        return combined[:max_chars]
 
     def _build_summary(self, prepared_query: str, sources: list[SearchSource]) -> str:
         if not sources:
@@ -414,7 +526,12 @@ class SearchService:
         if price_summary:
             return price_summary
 
-        summaries = [source.snippet for source in sources if source.snippet]
+        summaries: list[str] = []
+        for source in sources:
+            if source.page_excerpt:
+                summaries.append(source.page_excerpt[:420])
+            elif source.snippet:
+                summaries.append(source.snippet)
         if not summaries:
             return f"Collected {len(sources)} sources from the web."
         joined = " ".join(summaries)
@@ -431,7 +548,9 @@ class SearchService:
             r"(?<!\d)(?:usd\s*)?\$?\s*([1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?|[1-9]\d{2,6}(?:\.\d+)?)(?!\d)"
         )
         for source in sources:
-            haystack = " ".join(part for part in [source.title, source.snippet] if part)
+            haystack = " ".join(
+                part for part in [source.title, source.snippet, source.page_excerpt] if part
+            )
             for match in pattern.findall(haystack):
                 value = float(match.replace(",", ""))
                 if "gold" in lower_query and not 2000 <= value <= 10000:
@@ -498,24 +617,113 @@ class SearchService:
     def _timestamp(self) -> str:
         return datetime.now(UTC).isoformat()
 
+    def _wants_google_search_help_docs(self, lowered: str) -> bool:
+        if "google" not in lowered:
+            return False
+        hints = (
+            "google search help",
+            "how to search on google",
+            "google search history",
+            "search history",
+            "web & app activity",
+            "delete google search",
+            "google search settings",
+            "change google search",
+            "safe search",
+        )
+        return any(h in lowered for h in hints)
+
+    def _is_junk_search_result(
+        self,
+        url: str,
+        title: str,
+        snippet: str,
+        prepared_query: str,
+    ) -> bool:
+        if self._wants_google_search_help_docs(prepared_query.lower()):
+            return False
+        try:
+            parsed = urlparse(url)
+            host = parsed.netloc.lower().removeprefix("www.")
+            path_l = (parsed.path or "").lower()
+        except Exception:
+            return False
+        blob = f"{title} {snippet}".lower()
+        if host == "support.google.com":
+            if "/websearch" in path_l:
+                return True
+            if "google search help" in blob:
+                return True
+        return False
+
+    def _filter_engine_results(
+        self,
+        results: list[dict[str, str]],
+        prepared_query: str,
+    ) -> list[dict[str, str]]:
+        filtered: list[dict[str, str]] = []
+        for row in results:
+            url = self._normalize_result_url(row.get("url", ""))
+            title = (row.get("title") or "").strip()
+            snippet = (row.get("snippet") or "").strip()
+            if self._is_junk_search_result(url, title, snippet, prepared_query):
+                continue
+            filtered.append(row)
+        return filtered
+
     def _prepare_query(self, query: str) -> str:
         normalized = query.strip()
+        lowered = normalized.lower()
+
+        lowered = re.sub(
+            r"^\s*(?:copy\s+)?(?:please\s+|can you\s+)?"
+            r"(?:(?:web|bing|duckduckgo|ddg|google)\s+)?"
+            r"search\s+(?:on\s+(?:the\s+)?(?:web|internet)\s+)?(?:for\s+)?",
+            " ",
+            lowered,
+            count=1,
+        )
+        lowered = re.sub(
+            r"\b(?:web|bing|google)\s+search\s+for\b",
+            " ",
+            lowered,
+        )
         cleanup_patterns = [
             r"\bsearch (?:on|the)?\s*(?:internet|web)\b",
             r"\bseach (?:on|the)?\s*(?:internet|web)\b",
             r"\bsearch online\b",
-            r"\bgoogle\b",
+            r"\bgoogle\s+search\s+for\b",
+            r"\bsearch\s+google\s+for\b",
+            r"\bon\s+google\s+for\b",
             r"\blook up\b",
             r"\bfind information about\b",
             r"\bcan you\b",
             r"\btry to\b",
             r"\bplease\b",
         ]
-        lowered = normalized.lower()
         for pattern in cleanup_patterns:
             lowered = re.sub(pattern, " ", lowered)
-        lowered = re.sub(r"[?!.]+", " ", lowered)
+        # Do not strip "." — it breaks hostnames (e.g. krak.dk) and phone formatting.
+        lowered = re.sub(r"[?!]+", " ", lowered)
         lowered = re.sub(r"\s+", " ", lowered).strip()
+
+        site_match = re.search(
+            r"\bon\s+([a-z0-9][a-z0-9.-]*\.[a-z]{2,})\b",
+            lowered,
+        )
+        if site_match:
+            site = site_match.group(1).lower()
+            noise_domains = frozenset(
+                {
+                    "google.com",
+                    "google.dk",
+                    "gmail.com",
+                    "youtube.com",
+                    "youtu.be",
+                }
+            )
+            if site not in noise_domains and f"site:{site}" not in lowered:
+                lowered = f"{lowered} site:{site}"
 
         if any(keyword in lowered for keyword in ["bitcoin", "btc"]) and any(
             marker in lowered for marker in ["price", "worth", "trading", "value"]
@@ -547,4 +755,7 @@ class SearchService:
 
 @lru_cache
 def get_search_service() -> SearchService:
-    return SearchService(artifact_service=get_artifact_service())
+    return SearchService(
+        artifact_service=get_artifact_service(),
+        url_content_service=get_url_content_service(),
+    )

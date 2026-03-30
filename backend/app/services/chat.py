@@ -25,11 +25,19 @@ class ChatService:
         if not has_tool_context:
             return "Grounding policy:\n- " + "\n- ".join(base_rules)
         tool_rules = [
-            "When tool results include web search results, answer from those results first and keep the answer grounded in them.",
+            (
+                "When tool results include web search results, answer from those results first and keep the answer grounded in them. "
+                "If a source includes both a snippet and a longer page excerpt, prefer the page excerpt for factual detail when it is clearer."
+            ),
             "For web-grounded answers, mention that you checked the web and cite source domains or source titles plainly in the answer.",
             "If sources conflict, say that the sources disagree and name the conflicting sources instead of choosing a made-up value.",
             "If the web search returned no results, say exactly that and do not pretend that you found articles, people, or prices.",
             "If the web search returned no results, do not add speculative tips unless the user explicitly asked for alternatives.",
+            (
+                "When tool results include image search hits or a generated image (URLs or markdown like ![alt](url)), reference those images in your answer. "
+                "Use markdown image syntax for key thumbnails when it helps. For generated images, describe what was produced and offer refinements. "
+                "If tool text explains that results are **stock photo search** instead of AI generation, say that clearly so the user is not misled."
+            ),
         ]
         return "Grounding policy:\n- " + "\n- ".join(base_rules + tool_rules)
 

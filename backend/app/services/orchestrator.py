@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 
-from backend.app.schemas.chat import ChatAttachment, WebSearchLog
+from backend.app.schemas.chat import ChatAttachment, ImageIntelLog, WebSearchLog
 from backend.app.services.documents import DocumentService, get_document_service
+from backend.app.services.image_intel import ImageIntelService, get_image_intel_service
 from backend.app.services.sandbox import SandboxService, get_sandbox_service
 from backend.app.services.search import SearchService, get_search_service
 from backend.app.services.tools import AgentToolbox
@@ -14,6 +15,7 @@ class OrchestratorResult:
     tool_context: list[str] = field(default_factory=list)
     used_agents: list[str] = field(default_factory=list)
     search_logs: list[WebSearchLog] = field(default_factory=list)
+    image_logs: list[ImageIntelLog] = field(default_factory=list)
 
 
 class UtilityAgent:
@@ -100,6 +102,44 @@ class UrlAgent:
         return OrchestratorResult(tool_context=context, used_agents=[self.name])
 
 
+class ImageIntelAgent:
+    name = "image-intel-agent"
+
+    def __init__(self, image_intel_service: ImageIntelService) -> None:
+        self._service = image_intel_service
+
+    async def run(
+        self,
+        session_id: str | None,
+        user_message: str,
+        attachments: list[ChatAttachment],
+    ) -> OrchestratorResult:
+        if session_id is None:
+            return OrchestratorResult()
+        session_has = await self._service.session_has_recent_image(session_id)
+        if not self._service.should_activate_sync(
+            user_message,
+            attachments,
+            session_id,
+            session_has,
+        ):
+            return OrchestratorResult()
+        try:
+            context, logs = await self._service.run(session_id, user_message, attachments)
+        except Exception as exc:
+            return OrchestratorResult(
+                tool_context=[f"Image intelligence tools failed: {exc}"],
+                used_agents=[self.name],
+            )
+        if not context and not logs:
+            return OrchestratorResult()
+        return OrchestratorResult(
+            tool_context=context,
+            used_agents=[self.name],
+            image_logs=logs,
+        )
+
+
 class ExecutionAgent:
     name = "execution-agent"
 
@@ -128,10 +168,12 @@ class MultiAgentOrchestrator:
         search_service: SearchService,
         sandbox_service: SandboxService,
         url_content_service: UrlContentService,
+        image_intel_service: ImageIntelService,
     ) -> None:
         self.utility_agent = UtilityAgent(toolbox)
         self.document_agent = DocumentAgent(document_service)
         self.url_agent = UrlAgent(url_content_service)
+        self.image_intel_agent = ImageIntelAgent(image_intel_service)
         self.research_agent = ResearchAgent(search_service)
         self.execution_agent = ExecutionAgent(sandbox_service)
 
@@ -157,6 +199,11 @@ class MultiAgentOrchestrator:
         aggregate.tool_context.extend(urls.tool_context)
         aggregate.used_agents.extend(urls.used_agents)
 
+        images = await self.image_intel_agent.run(session_id, user_message, attachments)
+        aggregate.tool_context.extend(images.tool_context)
+        aggregate.used_agents.extend(images.used_agents)
+        aggregate.image_logs.extend(images.image_logs)
+
         research = await self.research_agent.run(session_id, user_message)
         aggregate.tool_context.extend(research.tool_context)
         aggregate.used_agents.extend(research.used_agents)
@@ -177,4 +224,5 @@ def get_multi_agent_orchestrator(toolbox: AgentToolbox) -> MultiAgentOrchestrato
         search_service=get_search_service(),
         sandbox_service=get_sandbox_service(),
         url_content_service=get_url_content_service(),
+        image_intel_service=get_image_intel_service(),
     )

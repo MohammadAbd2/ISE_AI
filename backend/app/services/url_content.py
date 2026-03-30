@@ -14,6 +14,7 @@ import httpx
 
 from backend.app.services.artifacts import ArtifactService, get_artifact_service
 from backend.app.services.documents import DocumentService, get_document_service
+from backend.app.services.image_intel import max_image_bytes_for_metadata
 from backend.app.services.vision import VisionService, get_vision_service
 
 
@@ -69,6 +70,64 @@ class UrlContentService:
     def extract_urls(self, text: str) -> list[str]:
         found = [match.group(0).rstrip(".,)") for match in self.URL_PATTERN.finditer(text)]
         return list(dict.fromkeys(found))
+
+    async def summarize_url_for_search(
+        self,
+        url: str,
+        client: httpx.AsyncClient,
+        *,
+        max_chars: int = 3200,
+    ) -> str:
+        """Fetch readable text for search-result enrichment (no artifact)."""
+        parsed = urlparse(url)
+        host = (parsed.netloc or "").lower()
+        if any(block in host for block in ("facebook.", "instagram.", "linkedin.")):
+            return ""
+
+        if "youtube.com" in host or "youtu.be" in host:
+            metadata = await asyncio.to_thread(self._youtube_metadata, url)
+            transcript = await asyncio.to_thread(self._youtube_transcript, url)
+            title = (metadata.get("title") or "").strip() or url
+            uploader = (metadata.get("uploader") or metadata.get("channel") or "").strip()
+            lines = [f"YouTube: {title}"]
+            if uploader:
+                lines.append(f"Channel: {uploader}")
+            desc = (metadata.get("description") or "").strip()
+            if desc:
+                lines.append(f"Description: {desc[:1400]}")
+            if transcript:
+                remain = max_chars - sum(len(x) + 1 for x in lines)
+                if remain > 200:
+                    lines.append(f"Transcript: {transcript[:remain]}")
+            text = "\n".join(lines)
+            return text[:max_chars]
+
+        try:
+            response = await client.get(
+                url,
+                headers={"User-Agent": "ISE-AI/1.0"},
+            )
+            response.raise_for_status()
+        except Exception:
+            return ""
+
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip()
+        if not content_type.startswith("text/html") and content_type not in {
+            "application/xhtml+xml",
+            "",
+        }:
+            return ""
+
+        title, body = await asyncio.to_thread(self._extract_webpage_text, response.text)
+        title = title.strip()
+        body = body.strip()
+        if not body and not title:
+            return ""
+        if title:
+            combined = f"{title}\n{body}" if body else title
+        else:
+            combined = body
+        return combined[:max_chars]
 
     async def build_context(
         self,
@@ -204,20 +263,24 @@ class UrlContentService:
             "Describe this image fetched from a URL. Mention the main subject, setting, any visible "
             "text, and important details without inventing specifics."
         )
+        b64 = base64.b64encode(binary).decode("ascii")
+        metadata: dict[str, str] = {"url": url, "content_type": content_type}
+        if len(binary) <= max_image_bytes_for_metadata():
+            metadata["image_base64"] = b64
         try:
             summary, model = await self.vision_service.analyze_images(
-                images_base64=[base64.b64encode(binary).decode("ascii")],
+                images_base64=[b64],
                 prompt=prompt,
             )
+            metadata["analysis_model"] = model
             content = f"Image URL: {url}\nVision summary:\n{summary}"
-            metadata = {"url": url, "analysis_model": model, "content_type": content_type}
         except Exception as exc:
             content = (
                 f"Image URL: {url}\n"
                 "Vision summary:\n"
                 "Automatic image analysis is unavailable right now."
             )
-            metadata = {"url": url, "analysis_error": str(exc), "content_type": content_type}
+            metadata["analysis_error"] = str(exc)
         return await self.artifact_service.create_artifact(
             session_id=session_id,
             kind="image-url",

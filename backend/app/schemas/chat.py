@@ -6,7 +6,11 @@ from pydantic import BaseModel, Field
 class SearchSource(BaseModel):
     title: str
     url: str
-    snippet: str = ""
+    snippet: str = Field(default="", description="Short line from the search engine or a brief fallback.")
+    page_excerpt: str = Field(
+        default="",
+        description="Longer text extracted from the page for top results when fetch succeeds.",
+    )
     domain: str = ""
 
 
@@ -18,6 +22,34 @@ class WebSearchLog(BaseModel):
     summary: str = ""
     sources: list[SearchSource] = Field(default_factory=list)
     error: str = ""
+
+
+class ImageHit(BaseModel):
+    """A single image result (web search) or a generated still."""
+
+    title: str = ""
+    image_url: str
+    thumbnail_url: str = ""
+    page_url: str = ""
+    source_name: str = ""
+
+
+class ImageIntelLog(BaseModel):
+    """Image search or local generation bundle for one user turn."""
+
+    kind: Literal["search", "generation"] = "search"
+    query: str = ""
+    provider: str = "duckduckgo-images"
+    status: Literal["completed", "failed"] = "completed"
+    searched_at: str = ""
+    summary: str = ""
+    images: list[ImageHit] = Field(default_factory=list)
+    error: str = ""
+    generator_model: str = ""
+    vision_notes: str = Field(
+        default="",
+        description="Structured vision output used to build search queries.",
+    )
 
 
 class ChatAttachment(BaseModel):
@@ -35,6 +67,7 @@ class ChatMessage(BaseModel):
     content: str = Field(min_length=1)
     attachments: list[ChatAttachment] = Field(default_factory=list)
     search_logs: list[WebSearchLog] = Field(default_factory=list)
+    image_logs: list[ImageIntelLog] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):
@@ -52,6 +85,7 @@ class ChatResponse(BaseModel):
     reply: str
     model: str
     search_logs: list[WebSearchLog] = Field(default_factory=list)
+    image_logs: list[ImageIntelLog] = Field(default_factory=list)
 
 
 class ModelsResponse(BaseModel):

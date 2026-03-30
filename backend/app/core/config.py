@@ -40,6 +40,14 @@ class Settings:
     mongo_uri: str = _get_env("MONGO_URI", "mongodb://localhost:27017")
     mongo_db_name: str = _get_env("MONGO_DB_NAME", "ise_ai")
     default_model: str = _get_env("DEFAULT_MODEL", "llama3")
+    ollama_image_model: str = _get_env(
+        "OLLAMA_IMAGE_MODEL",
+        "",
+    ).strip()
+    ollama_vision_model: str = _get_env(
+        "OLLAMA_VISION_MODEL",
+        "",
+    ).strip()
     system_prompt: str = _get_env(
         "SYSTEM_PROMPT",
         "You are a professional AI assistant running locally. "

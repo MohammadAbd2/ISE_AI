@@ -79,7 +79,7 @@ async def stream_chat(
         selected_model,
         attachments=[attachment.model_dump() for attachment in payload.attachments],
     )
-    stream, model, search_logs = await agent.stream_response(
+    stream, model, search_logs, image_logs = await agent.stream_response(
         payload,
         conversation=conversation,
         session_id=session["id"],
@@ -100,6 +100,8 @@ async def stream_chat(
             ) + "\n"
             for search_log in search_logs:
                 yield json.dumps({"type": "search", "log": search_log.model_dump()}) + "\n"
+            for image_log in image_logs:
+                yield json.dumps({"type": "images", "log": image_log.model_dump()}) + "\n"
             async for chunk in stream:
                 chunks.append(chunk)
                 yield json.dumps({"type": "token", "content": chunk}) + "\n"
@@ -110,6 +112,7 @@ async def stream_chat(
                 "".join(chunks),
                 model,
                 search_logs=[search_log.model_dump() for search_log in search_logs],
+                image_logs=[image_log.model_dump() for image_log in image_logs],
             )
             yield json.dumps({"type": "done"}) + "\n"
         except Exception as exc:

@@ -671,6 +671,114 @@ select {
   line-height: 1.5;
 }
 
+.search-source-card .search-source-page-excerpt {
+  display: block;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(100, 227, 255, 0.1);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.image-intel-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.image-intel-card {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 186, 120, 0.2);
+  background: rgba(40, 22, 8, 0.35);
+  padding: 12px 14px;
+}
+
+.image-intel-card.failed {
+  border-color: rgba(255, 120, 140, 0.35);
+}
+
+.image-intel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.image-intel-badge {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 186, 120, 0.15);
+  color: #ffd8a8;
+}
+
+.image-intel-provider {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.image-intel-query,
+.image-intel-summary {
+  margin: 0 0 6px;
+  color: var(--text);
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.image-intel-error {
+  margin: 0 0 8px;
+  color: #ffb4be;
+  font-size: 0.85rem;
+}
+
+.image-intel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.image-intel-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 186, 120, 0.12);
+  background: rgba(6, 14, 22, 0.55);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.image-intel-cell:hover {
+  border-color: rgba(255, 200, 140, 0.45);
+  transform: translateY(-1px);
+}
+
+.image-intel-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.image-intel-caption {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.35;
+  padding: 0 8px 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .code-shell {
   border-radius: 18px;
   overflow: hidden;

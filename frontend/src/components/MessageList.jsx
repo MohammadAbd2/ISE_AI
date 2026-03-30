@@ -16,6 +16,63 @@ function AttachmentList({ attachments }) {
   );
 }
 
+function ImageIntelLogList({ imageLogs }) {
+  if (!imageLogs || imageLogs.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="image-intel-list">
+      {imageLogs.map((log, index) => (
+        <article
+          key={`${log.kind}-${log.query || index}-${log.searched_at || index}`}
+          className={`image-intel-card ${log.status === "failed" ? "failed" : ""}`}
+        >
+          <div className="image-intel-header">
+            <span className="image-intel-badge">
+              {log.kind === "generation"
+                ? log.status === "failed"
+                  ? "Image generation failed"
+                  : "Generated image"
+                : log.status === "failed"
+                  ? "Image search failed"
+                  : "Image search"}
+            </span>
+            <span className="image-intel-provider">{log.provider || "images"}</span>
+          </div>
+          {log.query ? <p className="image-intel-query">{log.query}</p> : null}
+          {log.summary ? <p className="image-intel-summary">{log.summary}</p> : null}
+          {log.error ? <p className="image-intel-error">{log.error}</p> : null}
+          {Array.isArray(log.images) && log.images.length > 0 ? (
+            <div className="image-intel-grid">
+              {log.images.map((hit, hi) => {
+                const href = hit.page_url || hit.image_url || "#";
+                const src = hit.thumbnail_url || hit.image_url;
+                return (
+                  <a
+                    key={`${hi}-${src?.slice(0, 48) || hi}`}
+                    className="image-intel-cell"
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {src ? (
+                      <img src={src} alt={hit.title || "result"} loading="lazy" />
+                    ) : null}
+                    <span className="image-intel-caption">
+                      {hit.title || hit.source_name || "Image"}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function SearchLogList({ searchLogs }) {
   if (!searchLogs || searchLogs.length === 0) {
     return null;
@@ -50,6 +107,13 @@ function SearchLogList({ searchLogs }) {
                   <strong>{source.title}</strong>
                   <span>{source.domain || source.url}</span>
                   {source.snippet ? <small>{source.snippet}</small> : null}
+                  {source.page_excerpt ? (
+                    <small className="search-source-page-excerpt">
+                      {source.page_excerpt.length > 720
+                        ? `${source.page_excerpt.slice(0, 720)}…`
+                        : source.page_excerpt}
+                    </small>
+                  ) : null}
                 </a>
               ))}
             </div>
@@ -65,6 +129,7 @@ function MessageBubbleWithAttachments({
   content,
   attachments,
   searchLogs,
+  imageLogs,
   messageKey,
   copiedKey,
   onCopy,
@@ -87,6 +152,7 @@ function MessageBubbleWithAttachments({
         </div>
         <AttachmentList attachments={attachments} />
         {isAssistant ? <SearchLogList searchLogs={searchLogs} /> : null}
+        {isAssistant ? <ImageIntelLogList imageLogs={imageLogs} /> : null}
         <RichMessage content={content || " "} />
       </div>
     </article>
@@ -104,6 +170,7 @@ export default function MessageList({ messages, isLoading, copiedKey, onCopyMess
           content={message.content}
           attachments={message.attachments || []}
           searchLogs={message.search_logs || []}
+          imageLogs={message.image_logs || []}
           messageKey={`${message.role}-${index}`}
           copiedKey={copiedKey}
           onCopy={() => onCopyMessage(message, index)}

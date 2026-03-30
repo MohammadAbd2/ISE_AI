@@ -7,6 +7,7 @@ from backend.app.schemas.chat import (
     ChatMessage,
     ChatRequest,
     ChatResponse,
+    ImageIntelLog,
     WebSearchLog,
 )
 from backend.app.services.chat import ChatService
@@ -29,6 +30,7 @@ class AgentDecision:
     tool_context: list[str] | None = None
     used_agents: list[str] | None = None
     search_logs: list[WebSearchLog] | None = None
+    image_logs: list[ImageIntelLog] | None = None
 
 
 class ChatAgent:
@@ -61,6 +63,7 @@ class ChatAgent:
                 reply=decision.reply,
                 model=payload.model or "agent",
                 search_logs=decision.search_logs or [],
+                image_logs=decision.image_logs or [],
             )
         # Normalize schema objects into the provider-facing message model.
         conversation = [
@@ -77,7 +80,12 @@ class ChatAgent:
             model=payload.model,
             effort=payload.effort,
         )
-        return ChatResponse(reply=reply, model=model, search_logs=decision.search_logs or [])
+        return ChatResponse(
+            reply=reply,
+            model=model,
+            search_logs=decision.search_logs or [],
+            image_logs=decision.image_logs or [],
+        )
 
     async def stream_response(
         self,
@@ -96,6 +104,7 @@ class ChatAgent:
                 self._stream_text(decision.reply),
                 payload.model or "agent",
                 decision.search_logs or [],
+                decision.image_logs or [],
             )
         source = conversation if conversation is not None else payload.conversation
         normalized = [
@@ -112,7 +121,7 @@ class ChatAgent:
             model=payload.model,
             effort=payload.effort,
         )
-        return stream, model, decision.search_logs or []
+        return stream, model, decision.search_logs or [], decision.image_logs or []
 
     async def models(self) -> list[str]:
         return await self.service.available_models()
@@ -138,7 +147,11 @@ class ChatAgent:
             attachments=attachments,
         )
         if orchestration.direct_reply is not None:
-            return AgentDecision(reply=orchestration.direct_reply, used_agents=orchestration.used_agents)
+            return AgentDecision(
+                reply=orchestration.direct_reply,
+                used_agents=orchestration.used_agents,
+                image_logs=orchestration.image_logs,
+            )
 
         memory_note = ""
         for item in extract_helpful_memory(user_message, profile.get("memory", [])):
@@ -150,6 +163,7 @@ class ChatAgent:
             tool_context=orchestration.tool_context,
             used_agents=orchestration.used_agents,
             search_logs=orchestration.search_logs,
+            image_logs=orchestration.image_logs,
         )
 
     async def _handle_pending_confirmation(

@@ -10,11 +10,24 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from backend.app.core.config import settings
-from backend.app.schemas.chat import ChatAttachment, ChatMessage
+from backend.app.schemas.chat import ChatAttachment, ChatMessage, ImageIntelLog, WebSearchLog
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _coerce_model_list(model: type, raw: list | None) -> list:
+    out: list = []
+    for item in raw or []:
+        if isinstance(item, dict):
+            try:
+                out.append(model.model_validate(item))
+            except Exception:
+                continue
+        else:
+            out.append(item)
+    return out
 
 
 def _session_title(message: str) -> str:
@@ -113,6 +126,7 @@ class HistoryService:
         model: str,
         attachments: list[dict] | None = None,
         search_logs: list[dict] | None = None,
+        image_logs: list[dict] | None = None,
     ) -> None:
         await asyncio.to_thread(
             self._append_message_sync,
@@ -122,6 +136,7 @@ class HistoryService:
             model,
             attachments,
             search_logs,
+            image_logs,
         )
 
     def _append_message_sync(
@@ -132,6 +147,7 @@ class HistoryService:
         model: str,
         attachments: list[dict] | None = None,
         search_logs: list[dict] | None = None,
+        image_logs: list[dict] | None = None,
     ) -> None:
         if not self._mongo_available or self.collection is None:
             with self._lock:
@@ -144,6 +160,7 @@ class HistoryService:
                         "content": content,
                         "attachments": attachments or [],
                         "search_logs": search_logs or [],
+                        "image_logs": image_logs or [],
                     }
                 )
                 document["updated_at"] = _utc_now()
@@ -163,6 +180,7 @@ class HistoryService:
                             "content": content,
                             "attachments": attachments or [],
                             "search_logs": search_logs or [],
+                            "image_logs": image_logs or [],
                         }
                     },
                     "$set": {"updated_at": now, "model": model},
@@ -268,7 +286,8 @@ class HistoryService:
                         ChatAttachment(**attachment)
                         for attachment in item.get("attachments", [])
                     ],
-                    search_logs=item.get("search_logs", []),
+                    search_logs=_coerce_model_list(WebSearchLog, item.get("search_logs")),
+                    image_logs=_coerce_model_list(ImageIntelLog, item.get("image_logs")),
                 )
                 for item in document.get("messages", [])
             ],
