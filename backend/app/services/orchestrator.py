@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from backend.app.schemas.chat import ChatAttachment
+from backend.app.schemas.chat import ChatAttachment, WebSearchLog
 from backend.app.services.documents import DocumentService, get_document_service
 from backend.app.services.sandbox import SandboxService, get_sandbox_service
 from backend.app.services.search import SearchService, get_search_service
@@ -13,6 +13,7 @@ class OrchestratorResult:
     direct_reply: str | None = None
     tool_context: list[str] = field(default_factory=list)
     used_agents: list[str] = field(default_factory=list)
+    search_logs: list[WebSearchLog] = field(default_factory=list)
 
 
 class UtilityAgent:
@@ -70,10 +71,15 @@ class ResearchAgent:
                 return OrchestratorResult(tool_context=context, used_agents=[self.name])
             return OrchestratorResult()
         try:
-            context.append(await self.search_service.search(session_id, query=user_message))
+            log = await self.search_service.search(session_id, query=user_message)
         except Exception as exc:
-            context.append(f"Web search could not be completed: {exc}")
-        return OrchestratorResult(tool_context=context, used_agents=[self.name])
+            log = self.search_service.failed_log(user_message, str(exc))
+        context.append(self.search_service.build_prompt_context(log))
+        return OrchestratorResult(
+            tool_context=context,
+            used_agents=[self.name],
+            search_logs=[log],
+        )
 
 
 class UrlAgent:
@@ -154,6 +160,7 @@ class MultiAgentOrchestrator:
         research = await self.research_agent.run(session_id, user_message)
         aggregate.tool_context.extend(research.tool_context)
         aggregate.used_agents.extend(research.used_agents)
+        aggregate.search_logs.extend(research.search_logs)
 
         execution = await self.execution_agent.run(session_id, user_message)
         aggregate.tool_context.extend(execution.tool_context)

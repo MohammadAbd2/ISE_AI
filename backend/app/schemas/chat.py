@@ -3,6 +3,23 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class SearchSource(BaseModel):
+    title: str
+    url: str
+    snippet: str = ""
+    domain: str = ""
+
+
+class WebSearchLog(BaseModel):
+    query: str
+    provider: str = "duckduckgo"
+    status: Literal["completed", "failed"] = "completed"
+    searched_at: str
+    summary: str = ""
+    sources: list[SearchSource] = Field(default_factory=list)
+    error: str = ""
+
+
 class ChatAttachment(BaseModel):
     id: str
     name: str
@@ -17,6 +34,7 @@ class ChatMessage(BaseModel):
     role: str = Field(examples=["user", "assistant", "system"])
     content: str = Field(min_length=1)
     attachments: list[ChatAttachment] = Field(default_factory=list)
+    search_logs: list[WebSearchLog] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):
@@ -33,6 +51,7 @@ class ChatResponse(BaseModel):
     """Non-streaming response payload."""
     reply: str
     model: str
+    search_logs: list[WebSearchLog] = Field(default_factory=list)
 
 
 class ModelsResponse(BaseModel):

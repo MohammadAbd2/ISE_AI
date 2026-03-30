@@ -112,6 +112,7 @@ class HistoryService:
         content: str,
         model: str,
         attachments: list[dict] | None = None,
+        search_logs: list[dict] | None = None,
     ) -> None:
         await asyncio.to_thread(
             self._append_message_sync,
@@ -120,6 +121,7 @@ class HistoryService:
             content,
             model,
             attachments,
+            search_logs,
         )
 
     def _append_message_sync(
@@ -129,6 +131,7 @@ class HistoryService:
         content: str,
         model: str,
         attachments: list[dict] | None = None,
+        search_logs: list[dict] | None = None,
     ) -> None:
         if not self._mongo_available or self.collection is None:
             with self._lock:
@@ -140,6 +143,7 @@ class HistoryService:
                         "role": role,
                         "content": content,
                         "attachments": attachments or [],
+                        "search_logs": search_logs or [],
                     }
                 )
                 document["updated_at"] = _utc_now()
@@ -158,6 +162,7 @@ class HistoryService:
                             "role": role,
                             "content": content,
                             "attachments": attachments or [],
+                            "search_logs": search_logs or [],
                         }
                     },
                     "$set": {"updated_at": now, "model": model},
@@ -263,6 +268,7 @@ class HistoryService:
                         ChatAttachment(**attachment)
                         for attachment in item.get("attachments", [])
                     ],
+                    search_logs=item.get("search_logs", []),
                 )
                 for item in document.get("messages", [])
             ],

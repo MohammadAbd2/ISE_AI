@@ -11,6 +11,28 @@ class ChatService:
     def __init__(self, provider: LLMProvider) -> None:
         self.provider = provider
 
+    def _build_grounding_instruction(self, has_tool_context: bool) -> str:
+        base_rules = [
+            "For current, latest, recent, live, or today's information, never rely on model memory alone.",
+            "If tool results are present, treat them as the source of truth for this reply.",
+            "Never claim that you searched the web unless tool results actually contain web search results.",
+            "Never invent prices, dates, source names, article counts, or factual updates.",
+            (
+                "If the retrieved sources do not contain the exact answer, say that you could not verify "
+                "the exact value from the retrieved web results."
+            ),
+        ]
+        if not has_tool_context:
+            return "Grounding policy:\n- " + "\n- ".join(base_rules)
+        tool_rules = [
+            "When tool results include web search results, answer from those results first and keep the answer grounded in them.",
+            "For web-grounded answers, mention that you checked the web and cite source domains or source titles plainly in the answer.",
+            "If sources conflict, say that the sources disagree and name the conflicting sources instead of choosing a made-up value.",
+            "If the web search returned no results, say exactly that and do not pretend that you found articles, people, or prices.",
+            "If the web search returned no results, do not add speculative tips unless the user explicitly asked for alternatives.",
+        ]
+        return "Grounding policy:\n- " + "\n- ".join(base_rules + tool_rules)
+
     def _build_effort_instruction(self, effort: str) -> str:
         instructions = {
             "low": (
@@ -45,6 +67,7 @@ class ChatService:
         effort: str = "medium",
     ) -> list[Message]:
         # Compose one system message so provider adapters receive a clean message list.
+        tool_context = tool_context or []
         system_parts = [
             settings.system_prompt,
             self._build_effort_instruction(effort),
@@ -54,6 +77,7 @@ class ChatService:
                 "not that it was only mentioned in the current chat. "
                 "If you do not know something, say so plainly."
             ),
+            self._build_grounding_instruction(bool(tool_context)),
         ]
         if custom_instructions.strip():
             system_parts.append(f"Custom instructions:\n{custom_instructions.strip()}")
@@ -64,10 +88,11 @@ class ChatService:
             )
         if memory_note.strip():
             system_parts.append(memory_note.strip())
-        tool_context = tool_context or []
         if tool_context:
             system_parts.append(
-                "Tool results:\n" + "\n\n".join(tool_context)
+                "Tool results:\n"
+                "Use these results as your factual grounding. Do not override them with older internal knowledge.\n\n"
+                + "\n\n".join(tool_context)
             )
         messages = [Message(role="system", content="\n\n".join(system_parts))]
         messages.extend(conversation)

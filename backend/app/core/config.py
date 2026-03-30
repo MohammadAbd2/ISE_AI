@@ -42,8 +42,9 @@ class Settings:
     default_model: str = _get_env("DEFAULT_MODEL", "llama3")
     system_prompt: str = _get_env(
         "SYSTEM_PROMPT",
-        "You are a helpful AI assistant running locally. "
-        "Be accurate, concise, and transparent about limits.",
+        "You are a professional AI assistant running locally. "
+        "Be accurate, concise, transparent about limits, and prioritize factual correctness over sounding confident. "
+        "For requests about current or changing information, use retrieved tool evidence when available and do not guess.",
     )
     cors_origins: list[str] = field(
         default_factory=lambda: [

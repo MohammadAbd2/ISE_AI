@@ -2,7 +2,13 @@ from dataclasses import dataclass
 from typing import AsyncIterator
 
 from backend.app.models.message import Message
-from backend.app.schemas.chat import ChatAttachment, ChatMessage, ChatRequest, ChatResponse
+from backend.app.schemas.chat import (
+    ChatAttachment,
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    WebSearchLog,
+)
 from backend.app.services.chat import ChatService
 from backend.app.services.history import HistoryService
 from backend.app.services.orchestrator import get_multi_agent_orchestrator
@@ -22,6 +28,7 @@ class AgentDecision:
     memory_note: str = ""
     tool_context: list[str] | None = None
     used_agents: list[str] | None = None
+    search_logs: list[WebSearchLog] | None = None
 
 
 class ChatAgent:
@@ -50,7 +57,11 @@ class ChatAgent:
             attachments=payload.attachments,
         )
         if decision.reply is not None:
-            return ChatResponse(reply=decision.reply, model=payload.model or "agent")
+            return ChatResponse(
+                reply=decision.reply,
+                model=payload.model or "agent",
+                search_logs=decision.search_logs or [],
+            )
         # Normalize schema objects into the provider-facing message model.
         conversation = [
             Message(role=message.role, content=message.content)
@@ -66,14 +77,14 @@ class ChatAgent:
             model=payload.model,
             effort=payload.effort,
         )
-        return ChatResponse(reply=reply, model=model)
+        return ChatResponse(reply=reply, model=model, search_logs=decision.search_logs or [])
 
     async def stream_response(
         self,
         payload: ChatRequest,
         conversation: list[ChatMessage] | list[Message] | None = None,
         session_id: str | None = None,
-    ) -> tuple[AsyncIterator[str], str]:
+    ) -> tuple[AsyncIterator[str], str, list[WebSearchLog]]:
         profile = await self.profile_service.get_profile()
         decision = await self._decide(
             payload.message,
@@ -81,13 +92,17 @@ class ChatAgent:
             attachments=payload.attachments,
         )
         if decision.reply is not None:
-            return self._stream_text(decision.reply), payload.model or "agent"
+            return (
+                self._stream_text(decision.reply),
+                payload.model or "agent",
+                decision.search_logs or [],
+            )
         source = conversation if conversation is not None else payload.conversation
         normalized = [
             item if isinstance(item, Message) else Message(role=item.role, content=item.content)
             for item in source
         ]
-        return await self.service.stream_reply(
+        stream, model = await self.service.stream_reply(
             user_message=payload.message,
             conversation=normalized,
             custom_instructions=profile.get("custom_instructions", ""),
@@ -97,6 +112,7 @@ class ChatAgent:
             model=payload.model,
             effort=payload.effort,
         )
+        return stream, model, decision.search_logs or []
 
     async def models(self) -> list[str]:
         return await self.service.available_models()
@@ -133,6 +149,7 @@ class ChatAgent:
             memory_note=memory_note,
             tool_context=orchestration.tool_context,
             used_agents=orchestration.used_agents,
+            search_logs=orchestration.search_logs,
         )
 
     async def _handle_pending_confirmation(

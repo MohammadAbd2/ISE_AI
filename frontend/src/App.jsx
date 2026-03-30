@@ -66,6 +66,53 @@ export default function App() {
   const abortRef = useRef(null);
   const copiedTimeoutRef = useRef(null);
 
+  function appendSearchLog(messageIndex, log) {
+    setMessages((current) =>
+      current.map((message, index) => {
+        if (index !== messageIndex) {
+          return message;
+        }
+        const existingLogs = Array.isArray(message.search_logs) ? message.search_logs : [];
+        const nextLogs = [...existingLogs, log];
+        return { ...message, search_logs: nextLogs };
+      }),
+    );
+  }
+
+  async function handleStreamEvent(data, assistantIndex) {
+    if (data.type === "meta" && data.model) {
+      setActiveModel(data.model);
+    }
+    if (data.type === "meta" && data.session_id) {
+      setCurrentSessionId(data.session_id);
+    }
+    if (data.type === "meta" && data.storage_mode) {
+      setStorageMode(data.storage_mode);
+    }
+    if (data.type === "meta" && data.profile_storage_mode) {
+      setProfileStorageMode(data.profile_storage_mode);
+    }
+    if (data.type === "search" && data.log) {
+      appendSearchLog(assistantIndex, data.log);
+    }
+    if (data.type === "token") {
+      setMessages((current) =>
+        current.map((message, index) =>
+          index === assistantIndex
+            ? { ...message, content: message.content + data.content }
+            : message,
+        ),
+      );
+    }
+    if (data.type === "error") {
+      throw new Error(data.message || "Streaming failed");
+    }
+    if (data.type === "done") {
+      await loadSessions();
+      await loadProfile();
+    }
+  }
+
   useEffect(() => {
     async function loadModels() {
       try {
@@ -307,7 +354,7 @@ export default function App() {
     const assistantIndex = nextMessages.length;
     const attachmentsForRequest = pendingAttachments;
     setPendingAttachments([]);
-    setMessages([...nextMessages, { role: "assistant", content: "" }]);
+    setMessages([...nextMessages, { role: "assistant", content: "", search_logs: [] }]);
 
     try {
       const controller = new AbortController();
@@ -353,60 +400,13 @@ export default function App() {
           }
           // The backend streams newline-delimited JSON events.
           const data = JSON.parse(line);
-          if (data.type === "meta" && data.model) {
-            setActiveModel(data.model);
-          }
-          if (data.type === "meta" && data.session_id) {
-            setCurrentSessionId(data.session_id);
-          }
-          if (data.type === "meta" && data.storage_mode) {
-            setStorageMode(data.storage_mode);
-          }
-          if (data.type === "meta" && data.profile_storage_mode) {
-            setProfileStorageMode(data.profile_storage_mode);
-          }
-          if (data.type === "token") {
-            setMessages((current) =>
-              current.map((message, index) =>
-                index === assistantIndex
-                  ? { ...message, content: message.content + data.content }
-                  : message,
-              ),
-            );
-          }
-          if (data.type === "error") {
-            throw new Error(data.message || "Streaming failed");
-          }
-          if (data.type === "done") {
-            await loadSessions();
-            await loadProfile();
-          }
+          await handleStreamEvent(data, assistantIndex);
         }
       }
 
       if (buffer.trim()) {
         const data = JSON.parse(buffer);
-        if (data.type === "meta" && data.model) {
-          setActiveModel(data.model);
-        }
-        if (data.type === "meta" && data.session_id) {
-          setCurrentSessionId(data.session_id);
-        }
-        if (data.type === "meta" && data.storage_mode) {
-          setStorageMode(data.storage_mode);
-        }
-        if (data.type === "meta" && data.profile_storage_mode) {
-          setProfileStorageMode(data.profile_storage_mode);
-        }
-        if (data.type === "token") {
-          setMessages((current) =>
-            current.map((message, index) =>
-              index === assistantIndex
-                ? { ...message, content: message.content + data.content }
-                : message,
-            ),
-          );
-        }
+        await handleStreamEvent(data, assistantIndex);
       }
     } catch (requestError) {
       const aborted = requestError.name === "AbortError";

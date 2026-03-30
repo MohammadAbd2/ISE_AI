@@ -79,7 +79,7 @@ async def stream_chat(
         selected_model,
         attachments=[attachment.model_dump() for attachment in payload.attachments],
     )
-    stream, model = await agent.stream_response(
+    stream, model, search_logs = await agent.stream_response(
         payload,
         conversation=conversation,
         session_id=session["id"],
@@ -98,6 +98,8 @@ async def stream_chat(
                     "profile_storage_mode": profile.storage_mode(),
                 }
             ) + "\n"
+            for search_log in search_logs:
+                yield json.dumps({"type": "search", "log": search_log.model_dump()}) + "\n"
             async for chunk in stream:
                 chunks.append(chunk)
                 yield json.dumps({"type": "token", "content": chunk}) + "\n"
@@ -107,6 +109,7 @@ async def stream_chat(
                 "assistant",
                 "".join(chunks),
                 model,
+                search_logs=[search_log.model_dump() for search_log in search_logs],
             )
             yield json.dumps({"type": "done"}) + "\n"
         except Exception as exc:
