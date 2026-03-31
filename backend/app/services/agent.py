@@ -26,6 +26,7 @@ from backend.app.services.capability_gap_detector import (
     CapabilityGapDetector,
     get_capability_gap_detector,
 )
+from backend.app.services.evolution_session import get_evolution_session_manager
 
 
 @dataclass(slots=True)
@@ -59,8 +60,8 @@ class ChatAgent:
         self.orchestrator = get_multi_agent_orchestrator(self.toolbox)
         self.evolution_agent = evolution_agent or get_evolution_agent()
         self.gap_detector = gap_detector or get_capability_gap_detector()
-        # Track pending capability development offers per session
-        self.pending_capabilities: dict[str, str] = {}  # session_id -> capability_name
+        # Use global session manager for persistent pending capabilities
+        self.session_manager = get_evolution_session_manager()
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
@@ -146,18 +147,19 @@ class ChatAgent:
         profile = await self.profile_service.get_profile()
         
         # NEW: Check if user is approving a pending capability development
-        if session_id and session_id in self.pending_capabilities:
-            if self._is_approval(user_message):
-                capability_name = self.pending_capabilities[session_id]
-                del self.pending_capabilities[session_id]
+        if session_id:
+            pending_capability = self.session_manager.get_pending_capability(session_id)
+            if pending_capability and self._is_approval(user_message):
+                # Clear the pending offer
+                self.session_manager.clear_pending(session_id)
                 
                 # Start autonomous development
                 try:
-                    development_reply = await self._develop_capability(capability_name)
+                    development_reply = await self._develop_capability(pending_capability)
                     return AgentDecision(reply=development_reply)
                 except Exception as e:
                     return AgentDecision(
-                        reply=f"Failed to develop {capability_name}: {str(e)}"
+                        reply=f"Failed to develop {pending_capability}: {str(e)}"
                     )
         
         # NEW: Check for capability gaps and offer development
@@ -166,7 +168,10 @@ class ChatAgent:
             if evolution_decision.action == "offer_development":
                 # Track this pending capability for this session
                 if session_id:
-                    self.pending_capabilities[session_id] = evolution_decision.capability
+                    self.session_manager.offer_capability(
+                        session_id, 
+                        evolution_decision.capability
+                    )
                 # Return the offer message
                 return AgentDecision(reply=evolution_decision.message)
         except Exception as e:
