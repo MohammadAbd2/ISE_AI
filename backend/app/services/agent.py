@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import asyncio
 from typing import AsyncIterator
 
 from backend.app.models.message import Message
@@ -68,11 +69,24 @@ class ChatAgent:
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
-        decision = await self._decide(
-            payload.message,
-            session_id=session_id,
-            attachments=payload.attachments,
-        )
+        
+        # Determine if we should use agent mode
+        use_agent_mode = self._should_use_agent_mode(payload.message, payload.mode)
+        
+        if use_agent_mode:
+            # Use autonomous agent for coding tasks
+            decision = await self._decide(
+                payload.message,
+                session_id=session_id,
+                attachments=payload.attachments,
+            )
+        else:
+            # Use regular chat for questions
+            decision = AgentDecision(
+                memory_note="",
+                tool_context=None,
+            )
+        
         if decision.reply is not None:
             return ChatResponse(
                 reply=decision.reply,
@@ -109,11 +123,24 @@ class ChatAgent:
         session_id: str | None = None,
     ) -> tuple[AsyncIterator[str], str, list[WebSearchLog]]:
         profile = await self.profile_service.get_profile()
-        decision = await self._decide(
-            payload.message,
-            session_id=session_id,
-            attachments=payload.attachments,
-        )
+        
+        # Determine if we should use agent mode
+        use_agent_mode = self._should_use_agent_mode(payload.message, payload.mode)
+        
+        if use_agent_mode:
+            # Use autonomous agent for coding tasks
+            decision = await self._decide(
+                payload.message,
+                session_id=session_id,
+                attachments=payload.attachments,
+            )
+        else:
+            # Use regular chat for questions
+            decision = AgentDecision(
+                memory_note="",
+                tool_context=None,
+            )
+        
         if decision.reply is not None:
             return (
                 self._stream_text(decision.reply),
@@ -377,4 +404,101 @@ class ChatAgent:
             return error_msg
 
     async def _stream_text(self, text: str) -> AsyncIterator[str]:
-        yield text
+        """Stream text word by word for better UX."""
+        words = text.split(" ")
+        for i, word in enumerate(words):
+            # Add space before word (except for first word)
+            yield (word + " ") if i < len(words) - 1 else word
+            # Small delay for natural streaming effect
+            await asyncio.sleep(0.01)
+
+    def _should_use_agent_mode(self, message: str, mode: str) -> bool:
+        """
+        Determine if agent mode should be used based on message content and user preference.
+        
+        Args:
+            message: User's message
+            mode: Selected mode ("auto", "chat", or "agent")
+        
+        Returns:
+            True if agent mode should be used, False for chat mode
+        """
+        # If user explicitly selected a mode, respect it
+        if mode == "agent":
+            return True
+        if mode == "chat":
+            return False
+        
+        # Auto mode: intelligently detect intent
+        message_lower = message.lower().strip()
+        
+        # === CHAT MODE TRIGGERS (questions, explanations, rewrites in chat) ===
+        chat_triggers = [
+            # Questions
+            "what is", "explain", "tell me", "how do", "how to", "how does",
+            "why is", "who is", "when did", "where is", "define", "describe",
+            "what's", "how's", "why's", "can you explain", "could you explain",
+            
+            # Rewrite/Show in chat (NOT file operations)
+            "rewrite this", "show me", "give me", "write me", "can you write",
+            "could you write", "i want to see", "i'd like to see",
+            "in the chat", "in chat", "here in chat", "just show",
+            "don't create", "don't write to file", "not in file",
+            
+            # Code review/analysis (not modification)
+            "review this", "analyze this", "what does", "is this",
+            "check this", "look at this", "read this",
+            
+            # General queries
+            "history of", "benefits of", "difference between", "vs", "versus",
+            "compare", "which is better", "recommend", "suggest",
+        ]
+        
+        # Check for chat triggers FIRST
+        is_chat = any(trigger in message_lower for trigger in chat_triggers)
+        if is_chat:
+            return False  # Use chat mode
+        
+        # === AGENT MODE TRIGGERS (file operations, modifications) ===
+        agent_triggers = [
+            # Creation tasks (to files)
+            "create a file", "create file", "add a file", "write a file",
+            "create in", "write to", "save to", "put in",
+            
+            # Modification tasks
+            "change the", "update the", "modify the", "fix the", "debug",
+            "refactor", "optimize", "improve the", "enhance the",
+            
+            # File operations
+            "edit file", "update file", "delete file", "remove file",
+            "add to file", "remove from file",
+            
+            # Code-specific (when NOT asking questions)
+            "add endpoint", "add route", "add function to", "add class to",
+            "create endpoint", "create route", "implement",
+            
+            # Installation
+            "install", "npm install", "pip install", "add package",
+            
+            # Testing
+            "run tests", "test this", "write tests for",
+        ]
+        
+        # Check for agent triggers
+        has_agent_trigger = any(trigger in message_lower for trigger in agent_triggers)
+        
+        # Code patterns that suggest file operations
+        import re
+        file_patterns = [
+            r"(?:create|write|save|put)\s+(?:a|an)?\s*(?:file)?\s*(?:in|at|to)?\s*(?:folder|directory|path)?\s*['\"]?[\w/\.]+['\"]?",
+            r"(?:frontend|backend|src|app|utils|components|api)/[\w/\.]+",
+        ]
+        
+        has_file_pattern = any(re.search(pattern, message) for pattern in file_patterns)
+        
+        # Decision logic
+        if has_agent_trigger or has_file_pattern:
+            return True  # Coding task detected → Agent mode
+        
+        # Default to chat for general queries
+        return False

@@ -65,6 +65,13 @@ export default function App() {
   const [profileSaved, setProfileSaved] = useState("");
   const [error, setError] = useState("");
   const [copiedKey, setCopiedKey] = useState("");
+  const [mode, setMode] = useState("auto");  // Changed default to "auto"
+  const [tokenUsage, setTokenUsage] = useState({
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    availableTokens: 100000,  // Default available tokens
+  });
   const abortRef = useRef(null);
   const copiedTimeoutRef = useRef(null);
 
@@ -114,6 +121,7 @@ export default function App() {
       appendImageLog(assistantIndex, data.log);
     }
     if (data.type === "token") {
+      // Update message content
       setMessages((current) =>
         current.map((message, index) =>
           index === assistantIndex
@@ -121,6 +129,10 @@ export default function App() {
             : message,
         ),
       );
+      
+      // ✅ Subtract output tokens as they are generated
+      const outputTokenCount = Math.ceil(data.content.length / 4);
+      subtractOutputTokens(outputTokenCount);
     }
     if (data.type === "error") {
       throw new Error(data.message || "Streaming failed");
@@ -183,6 +195,7 @@ export default function App() {
     setError("");
     setIsLoading(false);
     setCopiedKey("");
+    resetTokenUsage();
   }
 
   async function loadSessions() {
@@ -358,6 +371,122 @@ export default function App() {
     );
   }
 
+  function calculateTokenUsage(text) {
+    // Simple token estimation: ~4 characters per token for English
+    const estimatedTokens = Math.ceil(text.length / 4);
+    return estimatedTokens;
+  }
+
+  function updateTokenUsageForInput(text) {
+    // Only calculate, don't subtract yet - will subtract on send
+    const inputTokens = calculateTokenUsage(text);
+    setTokenUsage(prev => ({
+      ...prev,
+      inputTokens: inputTokens,
+      // Don't subtract from availableTokens yet - will do on send
+    }));
+  }
+
+  function subtractInputTokens(text) {
+    // Subtract input tokens when message is sent
+    const inputTokens = calculateTokenUsage(text);
+    setTokenUsage(prev => ({
+      ...prev,
+      totalTokens: prev.totalTokens + inputTokens,
+      availableTokens: Math.max(0, (prev.availableTokens || 100000) - inputTokens),
+    }));
+  }
+
+  function subtractOutputTokens(tokenCount) {
+    // Subtract output tokens as they are generated
+    setTokenUsage(prev => ({
+      ...prev,
+      outputTokens: prev.outputTokens + tokenCount,
+      totalTokens: prev.totalTokens + tokenCount,
+      availableTokens: Math.max(0, (prev.availableTokens || 100000) - tokenCount),
+    }));
+  }
+
+  function resetTokenUsage() {
+    setTokenUsage({
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      availableTokens: 100000,
+    });
+  }
+
+  /**
+   * Intelligently detect if the task requires agent mode (coding) or chat mode.
+   * Similar to how Claude Code, Copilot, and Cursor auto-detect intent.
+   */
+  function detectRequiredMode(text) {
+    if (mode !== "auto") {
+      return mode;  // User explicitly selected a mode
+    }
+
+    const lower = text.toLowerCase();
+
+    // Coding/development task indicators (Agent mode)
+    const agentTriggers = [
+      // Creation tasks
+      "create", "add", "implement", "build", "develop", "generate", "write",
+      // Modification tasks
+      "change", "update", "modify", "fix", "debug", "refactor", "optimize",
+      // File operations
+      "new file", "edit file", "delete file", "create file",
+      // Code-specific
+      "function", "class", "component", "endpoint", "api", "route",
+      // Testing
+      "test", "pytest", "unit test",
+      // Installation
+      "install", "npm install", "pip install", "package", "dependency",
+      // Encryption/Security
+      "encrypt", "decrypt", "authentication", "authorization",
+      // Alerts/Notifications
+      "alert", "notification", "warning",
+      // Console
+      "console.log", "console log",
+    ];
+
+    // Check for agent triggers
+    const hasAgentTrigger = agentTriggers.some(trigger => lower.includes(trigger));
+
+    // Code patterns
+    const codePatterns = [
+      /\b(?:function|class|const|let|var|import|export|from)\s+\w/i,
+      /\b(?:def|import|from|class)\s+\w/i,  // Python
+      /(?:=>|=>\s*{|function\s*\(|\(\s*\)\s*=>)/,  // Arrow functions
+      /(?:frontend|backend|src|app|utils|components|api)\//i,  // File paths
+      /["\'][^"\']+\.(?:js|jsx|ts|tsx|py|css|html)["\']/i,  // File references
+    ];
+
+    const hasCodePattern = codePatterns.some(pattern => pattern.test(text));
+
+    // Exclude non-coding contexts
+    const excludePatterns = [
+      "what is", "explain", "tell me about", "how does", "why is",
+      "who is", "when did", "where is", "define", "describe",
+      "history of", "benefits of", "difference between",
+    ];
+
+    const isExcluded = excludePatterns.some(pattern => lower.startsWith(pattern));
+
+    // Decision logic
+    if (isExcluded) {
+      return "chat";  // Clearly a question
+    }
+
+    if (hasAgentTrigger || hasCodePattern) {
+      return "agent";  // Coding task detected
+    }
+
+    // Check if it's a follow-up to a coding task (context-aware)
+    // This would require conversation history analysis
+
+    return "chat";  // Default to chat for general queries
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     const value = input.trim();
@@ -365,6 +494,12 @@ export default function App() {
     if ((!value && pendingAttachments.length === 0) || isLoading || isUploading) {
       return;
     }
+
+    // Detect the required mode (Auto mode intelligent selection)
+    const detectedMode = detectRequiredMode(requestMessage);
+
+    // ✅ Subtract input tokens when sending
+    subtractInputTokens(requestMessage);
 
     const nextMessages = [
       ...messages,
@@ -399,6 +534,7 @@ export default function App() {
           attachments: attachmentsForRequest,
           conversation,
           session_id: currentSessionId || draftContextId,
+          mode: detectedMode,  // Pass detected mode to backend
         }),
       });
 
@@ -513,7 +649,10 @@ export default function App() {
       />
       <Composer
         value={input}
-        onChange={setInput}
+        onChange={(newValue) => {
+          setInput(newValue);
+          updateTokenUsageForInput(newValue);
+        }}
         onSubmit={handleSubmit}
         onStop={stopGeneration}
         onUploadFiles={handleUploadFiles}
@@ -523,6 +662,9 @@ export default function App() {
         isLoading={isLoading}
         isUploading={isUploading}
         error={error}
+        mode={mode}
+        onModeChange={setMode}
+        tokenUsage={tokenUsage}
       />
     </ChatLayout>
   );

@@ -77,6 +77,7 @@ export default function ChatLayout({
       </header>
       <div className="workspace">
         <aside className="history-panel">
+          <div className="history-panel-resize-handle" title="Drag to resize"></div>
           <div className="history-panel-header">
             <div>
               <div className="history-title">Chat history</div>
@@ -119,12 +120,6 @@ export default function ChatLayout({
           <div className="profile-panel">
             {/* The profile editor controls global assistant behavior across chats. */}
             <div className="history-title">AI profile</div>
-            <div className="storage-chip">
-              History: {storageMode}
-            </div>
-            <div className="storage-chip">
-              Memory: {profileStorageMode}
-            </div>
             <label className="profile-label">
               Custom instructions
               <textarea

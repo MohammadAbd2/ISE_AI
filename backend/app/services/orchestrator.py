@@ -169,6 +169,123 @@ class ExecutionAgent:
         return OrchestratorResult(tool_context=[result], used_agents=[self.name])
 
 
+class CodingAgent:
+    """
+    Autonomous coding agent for development tasks.
+    
+    Uses LLM-powered reasoning to:
+    - Understand any development task in natural language
+    - Plan and execute multi-step solutions
+    - Create new tools when needed
+    - Write complete functional code (not templates)
+    - Test and validate its own work
+    """
+    name = "coding-agent"
+
+    def __init__(self) -> None:
+        from backend.app.services.autonomous_agent import get_autonomous_agent
+        self.coding_agent = get_autonomous_agent()
+
+    def should_code(self, user_message: str) -> bool:
+        """Check if user is requesting a coding/development task."""
+        lower = user_message.lower()
+
+        # Console/browser tasks
+        if "console" in lower and ("log" in lower or "print" in lower or "browser" in lower):
+            return True
+        if "browser" in lower and ("log" in lower or "print" in lower or "console" in lower):
+            return True
+
+        # Development task triggers
+        dev_triggers = [
+            # Modification requests
+            "change the", "change port", "change config", "update the", "modify the",
+            "fix the", "debug", "bug in", "error in", "issue with",
+
+            # Creation requests
+            "create a", "create an", "create new", "add a", "add an", "add new",
+            "implement a", "implement an", "write a", "write an", "generate a",
+
+            # File operations
+            "edit file", "update file", "create file", "new file", "delete file",
+
+            # Code-specific
+            "add endpoint", "add route", "add function", "add class",
+            "create endpoint", "create route", "create function", "create class",
+
+            # Configuration
+            "set port", "set config", "configure", "change setting",
+
+            # Task requests
+            "i need you to", "can you create", "can you change", "can you fix",
+            "please create", "please fix", "please change", "please update",
+
+            # Development actions
+            "refactor", "optimize", "improve the", "enhance the",
+
+            # Encryption/security
+            "encrypt", "decrypt", "security", "authentication", "authorization",
+        ]
+
+        if any(trigger in lower for trigger in dev_triggers):
+            # Exclude if it's clearly not about code
+            exclude = ["create image", "create picture", "fix me a drink", "change clothes"]
+            if not any(ex in lower for ex in exclude):
+                return True
+
+        # Check for specific technical patterns
+        tech_patterns = [
+            r"(?:port|PORT)\s*(?:=|:|from)?\s*\d+",  # Port numbers
+            r"(?:endpoint|route)\s*['\"]/api/",  # API endpoints
+            r"(?:function|method|class)\s+\w+",  # Code elements
+            r"(?:file|module)\s+\w+\.py",  # Python files
+            r"(?:create|make|build)\s+(?:a|an)?\s*\w+\s+(?:file|tool|utility|service|component)",
+        ]
+
+        import re
+        for pattern in tech_patterns:
+            if re.search(pattern, user_message):
+                return True
+
+        return False
+
+    async def run(self, session_id: str | None, user_message: str) -> OrchestratorResult:
+        """Execute autonomous coding task using LLM-powered agent."""
+        if session_id is None:
+            return OrchestratorResult()
+
+        if not self.should_code(user_message):
+            return OrchestratorResult()
+
+        try:
+            # Initialize agent if needed
+            await self.coding_agent.initialize()
+            
+            # Execute the task autonomously
+            progress = await self.coding_agent.execute_task(user_message)
+
+            # Format the progress as a detailed log
+            log_output = progress.to_log_string()
+
+            if progress.overall_status == "completed":
+                return OrchestratorResult(
+                    direct_reply=f"✅ **Development Task Complete**\n\n{log_output}",
+                    used_agents=[self.name],
+                )
+            else:
+                return OrchestratorResult(
+                    tool_context=[f"Coding task status: {progress.final_result}"],
+                    used_agents=[self.name],
+                )
+
+        except Exception as e:
+            import traceback
+            return OrchestratorResult(
+                tool_context=[f"Coding agent error: {str(e)}\n\n{traceback.format_exc()}"],
+                used_agents=[self.name],
+            )
+
+
 class VideoGenerationAgent:
     name = "video-generation-agent"
 
@@ -210,27 +327,64 @@ class ImageGenerationAgent:
         """Check if user is requesting image generation."""
         if not self.capability_available:
             return False
-        
+
         lower = user_message.lower()
-        
-        # Check for image generation requests
-        keywords = [
-            "generate image",
-            "generate picture",
-            "create image",
-            "create picture",
-            "draw me",
-            "draw a",
-            "make an image",
-            "make a picture",
-            "random image",
-            "random picture",
-            "show me the generated picture",
-            "show me the picture",
-            "show me the image",
+
+        # Comprehensive list of image generation triggers
+        image_triggers = [
+            # Generate variations
+            "generate image", "generate picture", "generate photo", "generate art",
+            "generate a", "generate an", "generate the",
+            # Create variations
+            "create image", "create picture", "create photo", "create art",
+            "create a", "create an", "create the",
+            # Draw variations
+            "draw me", "draw a", "draw an", "draw the", "draw",
+            # Make variations
+            "make an image", "make a picture", "make a photo", "make art",
+            "make me a", "make me an", "make me",
+            # Show variations
+            "show me a picture", "show me an image", "show me a photo",
+            "show me the", "show me",
+            # Other triggers
+            "random image", "random picture", "random photo",
+            "image of", "picture of", "photo of",
+            "i want to see", "i'd like to see", "i want", "i need",
+            "can you generate", "can you create", "can you draw", "can you make",
+            "please generate", "please create", "please draw", "please make",
+        ]
+
+        # Check for any trigger
+        if any(trigger in lower for trigger in image_triggers):
+            # Exclude if it's clearly about something else
+            exclude_patterns = [
+                "generate code", "generate text", "generate response",
+                "create a function", "create a class", "create a variable",
+                "draw a card", "draw from", "make a call", "make a request",
+                "show me the code", "show me how",
+            ]
+            if not any(exclude in lower for exclude in exclude_patterns):
+                return True
+
+        # Check for descriptive requests (e.g., "a cat", "sunset", "mountain landscape")
+        descriptive_patterns = [
+            r"^(a|an|the)\s+[a-z]{3,}(?:\s+of\s+)?",  # "a cat", "an elephant"
+            r"^(?:i want|i need|i'd like)\s+(?:to see\s+)?(?:a|an|the)\s+",  # "i want to see a..."
+            r"^(?:how about|what about|give me)\s+(?:a|an|the)\s+",  # "give me a..."
         ]
         
-        return any(kw in lower for kw in keywords)
+        import re
+        for pattern in descriptive_patterns:
+            if re.search(pattern, lower):
+                # Additional check: should contain visual/descriptive words
+                visual_words = ["cat", "dog", "sunset", "mountain", "ocean", "forest", 
+                               "city", "building", "person", "animal", "flower", "tree",
+                               "car", "house", "food", "drink", "landscape", "portrait",
+                               "abstract", "colorful", "beautiful", "scenic", "nature"]
+                if any(word in lower for word in visual_words) or len(lower.split()) >= 3:
+                    return True
+
+        return False
 
     async def run(self, session_id: str | None, user_message: str) -> OrchestratorResult:
         """Handle image generation using the developed capability."""
@@ -279,25 +433,53 @@ class ImageGenerationAgent:
     
     def _extract_prompt(self, user_message: str) -> str:
         """Extract the image generation prompt from user message."""
+        import re
+        
         lower = user_message.lower()
         
-        # Common patterns
-        patterns = [
-            r"generate (?:a|an|the|random)?\s*(?:image|picture|photo)?\s*(?:of|for)?\s*(.+?)(?:\.|!|$)",
-            r"create (?:a|an|the)?\s*(?:image|picture|photo)?\s*(?:of|for)?\s*(.+?)(?:\.|!|$)",
-            r"draw (?:me|a|an|the)?\s*(.+?)(?:\.|!|$)",
-            r"make (?:me|a|an|the)?\s*(?:image|picture|photo)?\s*(?:of|for)?\s*(.+?)(?:\.|!|$)",
+        # Remove common prefixes to get the actual subject
+        prefixes_to_remove = [
+            r"^(?:please|can you|could you|will you|would you)\s+",
+            r"^(?:generate|create|draw|make|show me|i want|i need|i'd like)\s+",
+            r"^(?:an?|the)\s+",
+            r"^(?:image|picture|photo|art)\s+(?:of|for)?\s*",
+            r"^(?:to see|seeing)\s+",
         ]
         
-        import re
+        cleaned = user_message.strip()
+        for prefix in prefixes_to_remove:
+            cleaned = re.sub(prefix, "", cleaned, flags=re.IGNORECASE)
+        
+        # Clean up extra whitespace
+        cleaned = " ".join(cleaned.split())
+        
+        # If we got something meaningful, use it
+        if cleaned and len(cleaned) > 2:
+            return cleaned
+        
+        # Try pattern matching for specific structures
+        patterns = [
+            # "generate/create/draw/make [a/an/the] X" or "generate/create/draw/make X"
+            r"(?:generate|create|draw|make)\s+(?:an?|the)?\s*(.+?)(?:\.|!|$)",
+            # "i want/need/like [to see] X"
+            r"(?:i want|i need|i'd like)(?:\s+to\s+see)?\s+(?:an?|the)?\s*(.+?)(?:\.|!|$)",
+            # "show me X"
+            r"show\s+me\s+(?:an?|the)?\s*(.+?)(?:\.|!|$)",
+            # "image/picture/photo of X"
+            r"(?:image|picture|photo)\s+of\s+(.+?)(?:\.|!|$)",
+        ]
+        
         for pattern in patterns:
             match = re.search(pattern, lower)
             if match:
                 prompt = match.group(1).strip()
+                # Clean up the prompt
+                prompt = " ".join(prompt.split())
                 if prompt and len(prompt) > 2:
-                    return prompt
+                    # Capitalize first letter
+                    return prompt.capitalize()
         
-        # Fallback: use the whole message
+        # Fallback: use the whole message, cleaned up
         return user_message.strip()
 
 
@@ -322,6 +504,7 @@ class MultiAgentOrchestrator:
         self.video_generation_agent = VideoGenerationAgent(video_service)
         self.research_agent = ResearchAgent(search_service)
         self.execution_agent = ExecutionAgent(sandbox_service)
+        self.coding_agent = CodingAgent()
 
     async def run(
         self,
@@ -349,6 +532,13 @@ class MultiAgentOrchestrator:
         aggregate.tool_context.extend(images.tool_context)
         aggregate.used_agents.extend(images.used_agents)
         aggregate.image_logs.extend(images.image_logs)
+
+        # Check for coding/development tasks (HIGH PRIORITY)
+        coding = await self.coding_agent.run(session_id, user_message)
+        if coding.direct_reply is not None:
+            return coding
+        aggregate.tool_context.extend(coding.tool_context)
+        aggregate.used_agents.extend(coding.used_agents)
 
         # Check for image generation requests (after capability development)
         gen_image = await self.image_generation_agent.run(session_id, user_message)

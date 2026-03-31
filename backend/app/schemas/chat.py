@@ -78,6 +78,7 @@ class ChatRequest(BaseModel):
     model: str | None = None
     session_id: str | None = None
     effort: Literal["low", "medium", "high"] = "medium"
+    mode: Literal["auto", "chat", "agent"] = "auto"  # Mode selection with auto-detect
 
 
 class ChatResponse(BaseModel):

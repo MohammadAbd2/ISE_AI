@@ -12,6 +12,9 @@ export default function Composer({
   isLoading,
   isUploading,
   error,
+  mode = "auto",  // "auto", "chat", or "agent"
+  onModeChange,
+  tokenUsage = null,
 }) {
   const fileInputRef = useRef(null);
 
@@ -31,6 +34,33 @@ export default function Composer({
     event.target.value = "";
   }
 
+  const getModeIcon = (m) => {
+    switch(m) {
+      case 'auto': return '🤖';
+      case 'chat': return '💬';
+      case 'agent': return '⚡';
+      default: return '🤖';
+    }
+  };
+
+  const getModeLabel = (m) => {
+    switch(m) {
+      case 'auto': return 'Auto';
+      case 'chat': return 'Chat';
+      case 'agent': return 'Agent';
+      default: return 'Auto';
+    }
+  };
+
+  const getModeHint = (m) => {
+    switch(m) {
+      case 'auto': return 'Auto selects best mode: Agent for coding tasks, Chat for questions';
+      case 'chat': return 'Chat mode for questions, conversations, and general queries';
+      case 'agent': return 'Agent can modify files, install packages, and execute code';
+      default: return '';
+    }
+  };
+
   return (
     <form className="composer" onSubmit={onSubmit}>
       {attachments.length > 0 ? (
@@ -49,6 +79,39 @@ export default function Composer({
         </div>
       ) : null}
       <div className="composer-shell">
+        {/* Mode Toggle */}
+        <div className="composer-mode-toggle">
+          <div className="mode-toggle-group">
+            <button
+              type="button"
+              className={`mode-toggle-btn auto ${mode === "auto" ? "active" : ""}`}
+              onClick={() => onModeChange && onModeChange("auto")}
+              title="Auto: AI selects best mode based on your request"
+            >
+              🤖 Auto
+            </button>
+            <button
+              type="button"
+              className={`mode-toggle-btn chat ${mode === "chat" ? "active" : ""}`}
+              onClick={() => onModeChange && onModeChange("chat")}
+              title="Chat: Always use conversation mode"
+            >
+              💬 Chat
+            </button>
+            <button
+              type="button"
+              className={`mode-toggle-btn agent ${mode === "agent" ? "active" : ""}`}
+              onClick={() => onModeChange && onModeChange("agent")}
+              title="Agent: Always use autonomous coding agent"
+            >
+              ⚡ Agent
+            </button>
+          </div>
+          <span className="mode-hint">
+            {getModeHint(mode)}
+          </span>
+        </div>
+
         <div className="composer-toolbar">
           <div className="composer-tools">
             <input
@@ -96,7 +159,13 @@ export default function Composer({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask, paste a URL, or upload docs, images, and videos..."
+            placeholder={
+              mode === "agent"
+                ? "Ask me to code, fix bugs, create features, or modify files..."
+                : mode === "auto"
+                ? "Ask anything - I'll auto-select the best mode (coding tasks → Agent, questions → Chat)..."
+                : "Ask, paste a URL, or upload docs, images, and videos..."
+            }
             rows={3}
             disabled={disabled}
           />
@@ -110,6 +179,28 @@ export default function Composer({
             </button>
           )}
         </div>
+
+        {/* Token Usage Display */}
+        {tokenUsage && (
+          <div className="token-usage-display">
+            <div className="token-box">
+              <span className="token-label">Input</span>
+              <span className="token-value">{tokenUsage.inputTokens?.toLocaleString() || 0}</span>
+            </div>
+            <div className="token-box">
+              <span className="token-label">Output</span>
+              <span className="token-value">{tokenUsage.outputTokens?.toLocaleString() || 0}</span>
+            </div>
+            <div className="token-box total">
+              <span className="token-label">Total</span>
+              <span className="token-value">{tokenUsage.totalTokens?.toLocaleString() || 0}</span>
+            </div>
+            <div className="token-box available">
+              <span className="token-label">Available</span>
+              <span className="token-value">{tokenUsage.availableTokens?.toLocaleString() || "∞"}</span>
+            </div>
+          </div>
+        )}
       </div>
       <div className="composer-footer">
         {error ? <span className="error-text">{error}</span> : null}

@@ -1,316 +1,318 @@
-# ISE AI Chatbot
+# 🚀 ISE AI - Autonomous AI Development Agent
 
-ISE AI is a local-first chatbot project with a React frontend and a FastAPI backend. It is designed to feel like a modern ChatGPT-style interface while keeping the internals simple to extend with new models, memory behavior, persistence, and future agent features.
+<div align="center">
 
-**NEW: Self-Evolution Capabilities** 🚀 - The AI can now autonomously develop new features and capabilities in response to your requests!
+**A self-hosted, privacy-first AI coding assistant that rivals Claude Code, Cursor, and GitHub Copilot**
 
-## Homepage Preview
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
 
-![ISE AI homepage](assets/ISE_AI_HomePage.png)
+**100% Local • Free • No API Keys • Privacy-Focused**
 
-## What The Project Does
+</div>
 
-- Streams chat responses from a local Ollama model.
-- Stores chat sessions and assistant profile data in MongoDB when available.
-- Falls back to in-memory storage when MongoDB is offline.
-- Lets the user manage custom instructions and long-term memory from the UI.
-- Supports confirmation before destructive memory changes.
-- Supports three response effort levels: `low`, `medium`, and `high`.
-- Includes an internal agent layer that can use multiple built-in tools.
-- Keeps backend responsibilities split into API, service, provider, and schema layers.
-- **NEW: Self-evolution system** - AI can detect missing capabilities and develop them autonomously with user approval and full rollback support.
+---
 
-## Technology Stack
+## 📋 Table of Contents
 
-- Frontend: React 18 + Vite
-- Backend: FastAPI + Pydantic
-- Model runtime: Ollama
-- Persistence: MongoDB with automatic memory fallback
-- HTTP client to Ollama: `httpx`
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Architecture](#-architecture)
+- [Capabilities](#-capabilities)
+- [Comparison](#-comparison-with-other-ai-tools)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-## Project Structure
+---
 
-```text
-ISE_AI/
-├── assets/
-│   └── ISE_AI_HomePage.png        # Screenshot used in the README
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   └── routes.py          # FastAPI endpoints
-│   │   ├── core/
-│   │   │   └── config.py          # Environment loading and shared settings
-│   │   ├── models/
-│   │   │   └── message.py         # Internal message model
-│   │   ├── providers/
-│   │   │   ├── base.py            # Provider contract
-│   │   │   └── ollama.py          # Ollama adapter
-│   │   ├── schemas/
-│   │   │   └── chat.py            # Request and response models
-│   │   ├── services/
-│   │   │   ├── agent.py           # Conversation policy and memory behavior
-│   │   │   ├── chat.py            # Prompt building and provider calls
-│   │   │   ├── history.py         # Chat session persistence
-│   │   │   └── profile.py         # Assistant profile and long-term memory
-│   │   └── main.py                # FastAPI application setup
-│   ├── .env.example
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ChatLayout.jsx     # App frame, sidebar, and profile panel
-│   │   │   ├── Composer.jsx       # Message input and send/stop controls
-│   │   │   └── MessageList.jsx    # Chat transcript rendering
-│   │   ├── styles/
-│   │   │   └── global.css         # Global theme and responsive layout
-│   │   ├── App.jsx                # Main state and network orchestration
-│   │   └── main.jsx               # React entrypoint
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-└── main.py                        # Local backend runner
-```
+## ✨ Features
 
-## Architecture Overview
+### 🧠 **Intelligent Mode Selection**
+- **Auto Mode**: AI automatically detects if you need chat or agent mode
+- **Chat Mode**: For questions, explanations, and discussions
+- **Agent Mode**: For coding tasks, file modifications, and development
 
-### Frontend
+### 🤖 **Autonomous Coding Agent**
+- Creates, modifies, and deletes files autonomously
+- Multi-file editing with dependency tracking
+- Automatic import management
+- User confirmation before changes
+- Rollback support for undoing modifications
 
-The frontend is a single React application that owns all UI state in `frontend/src/App.jsx`.
+### 🔍 **Enhanced RAG System**
+- **Semantic Search**: Vector embeddings for codebase understanding
+- **Cross-File References**: Track symbol usage across files
+- **Symbol Graph**: Navigate functions, classes, and imports
+- **100K+ Token Context**: Large context window for complex tasks
 
-- `App.jsx` loads models, chat history, and the AI profile from the backend.
-- `ChatLayout.jsx` renders the main shell, history sidebar, model selector, and profile editor.
-- `MessageList.jsx` renders the conversation transcript and updates the last assistant message during streaming.
-- `Composer.jsx` handles the message input, `Enter` to send, and `Shift+Enter` for new lines.
+### 💻 **Terminal Integration**
+- Run commands directly from chat
+- Automatic error analysis
+- Smart fix suggestions
+- Stack trace parsing (Python, TypeScript, Node.js)
 
-### Backend
+### 🎨 **Professional Responses**
+- ChatGPT/Claude-style formatting
+- Conversational, natural tone
+- Well-structured explanations
+- Multi-language support (Arabic/English)
+- Code examples with every explanation
 
-The backend is split into layers so each part has one clear responsibility.
+### 📸 **Vision Capabilities**
+- Screenshot to code conversion
+- UI mockup analysis
+- Error screenshot debugging
+- Diagram understanding
 
-- `api/routes.py`: HTTP endpoints and response streaming.
-- `schemas/chat.py`: request and response validation models.
-- `services/agent.py`: conversation policy, memory confirmation flow, and orchestration.
-- `services/chat.py`: prompt assembly and provider selection.
-- `services/history.py`: chat session persistence.
-- `services/profile.py`: assistant custom instructions and long-term memory persistence.
-- `services/tools.py`: built-in tools the agent can call when needed.
-- `providers/ollama.py`: communication with the Ollama HTTP API.
+### 🎤 **Voice Commands**
+- Hands-free coding
+- Voice dictation
+- Natural language commands
 
-## Request Flow
+### 📚 **Style Learning**
+- Learns your coding preferences
+- Remembers naming conventions
+- Adapts to your library choices
+- Saves to `.ise_ai_style.json`
 
-### Streaming chat flow
+### 🔧 **Git Integration**
+- Automatic commit message generation
+- PR description writing
+- Change analysis
+- Branch management assistance
 
-1. The user sends a message from the React composer.
-2. `frontend/src/App.jsx` calls `POST /api/chat/stream`.
-3. `backend/app/api/routes.py` creates or loads the chat session.
-4. `ChatAgent` applies memory rules and forwards the request to `ChatService`.
-5. The agent can answer directly, request confirmation for destructive memory changes, or call multiple built-in tools.
-6. `ChatService` builds the final message list, including system prompt, response effort, custom instructions, saved memory, and any tool output.
-7. `OllamaProvider` calls the local Ollama server and streams tokens back.
-8. The backend emits newline-delimited JSON events.
-9. The frontend appends incoming tokens to the active assistant message.
-10. When streaming finishes, the backend stores the final assistant response in chat history.
+---
 
-### Profile and memory flow
+## 🏃 Quick Start
 
-1. The user edits custom instructions or memory entries in the sidebar.
-2. The frontend sends `PUT /api/ai/profile`.
-3. `ProfileService` stores the profile in MongoDB, or in memory if MongoDB is unavailable.
-4. Future prompts automatically include the stored profile data.
-
-### Confirmation flow for destructive memory actions
-
-1. If the user asks to clear or delete saved memory, the agent does not delete it immediately.
-2. The backend stores a pending action on the active chat session.
-3. The assistant asks for confirmation.
-4. The user replies `yes` to proceed or `no` to cancel.
-5. Only after confirmation does the backend delete the requested memory.
-
-## Persistence Model
-
-The project supports two storage modes:
-
-- `mongodb`: persistent storage for chat sessions and assistant profile data
-- `memory`: automatic fallback when MongoDB is not reachable
-
-This means the application can still run locally even if MongoDB is down, but history and memory will reset when the backend restarts in fallback mode.
-
-## Environment Configuration
-
-The backend reads environment values from:
-
-- `.env`
-- `backend/.env`
-- built-in defaults in `backend/app/core/config.py`
-
-Important variables:
-
-```env
-APP_NAME=ISE AI Chatbot
-ENVIRONMENT=development
-OLLAMA_BASE_URL=http://localhost:11434
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=ise_ai
-DEFAULT_MODEL=llama3
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-```
-
-## Requirements
-
-- Python 3.11+
-- Node.js 18+
-- Ollama installed locally
-- MongoDB installed locally if you want persistent storage
-
-## Setup
-
-### 1. Prepare Ollama
-
-Install a local model if needed:
+### Prerequisites
 
 ```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull required models
 ollama pull llama3
+ollama pull nomic-embed-text  # For semantic search
+ollama pull llava             # For vision (optional)
 ```
 
-### 2. Configure the backend
+### Installation
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
+# Clone the repository
+git clone https://github.com/yourusername/ise-ai.git
+cd ise-ai
+
+# Install Python dependencies
 pip install -r requirements.txt
-cp .env.example .env
-```
 
-### 3. Start MongoDB
-
-Default local configuration:
-
-```text
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=ise_ai
-```
-
-MongoDB is used for:
-
-- persisted chat history
-- loading previous sessions after refresh
-- storing assistant custom instructions
-- storing long-term memory entries
-
-### 4. Run the backend
-
-From the project root:
-
-```bash
-python main.py
-```
-
-Backend default URL:
-
-```text
-http://localhost:8000
-```
-
-Health check:
-
-```text
-GET http://localhost:8000/health
-```
-
-### 5. Run the frontend
-
-```bash
+# Install frontend dependencies
 cd frontend
 npm install
+
+# Start the backend
+cd ..
+python main.py
+
+# Start the frontend (new terminal)
+cd frontend
 npm run dev
 ```
 
-Frontend default URL:
+### Usage
 
-```text
-http://localhost:5173
+1. Open `http://localhost:5173` in your browser
+2. Select a model (default: llama3)
+3. Choose mode: **Auto** | **Chat** | **Agent**
+4. Start chatting or coding!
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Frontend (React)                      │
+├─────────────────────────────────────────────────────────┤
+│  Auto Mode Detection • Voice Commands • Screenshot UI   │
+└─────────────────────┬───────────────────────────────────┘
+                      │ REST API + SSE
+┌─────────────────────▼───────────────────────────────────┐
+│                   Backend (FastAPI)                      │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ Chat Agent   │  │ Auto Agent   │  │ Terminal     │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ Enhanced RAG │  │ Git Integration│ │ Style Learner│  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────┐
+│                    Ollama (Local LLM)                    │
+│  llama3 • nomic-embed-text • llava • etc.              │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## API Overview
+---
 
-### `POST /api/chat`
+## 🎯 Capabilities
 
-Non-streaming chat endpoint that returns a full response body.
+### Code Generation
+- ✅ Create new files and projects
+- ✅ Modify existing code
+- ✅ Refactor and optimize
+- ✅ Add tests
+- ✅ Fix bugs
+- ✅ Install dependencies
 
-### `POST /api/chat/stream`
+### Code Understanding
+- ✅ Answer questions about your codebase
+- ✅ Explain complex logic
+- ✅ Find bugs and issues
+- ✅ Suggest improvements
+- ✅ Cross-file analysis
 
-Streaming chat endpoint used by the UI.
+### Development Workflow
+- ✅ Run commands and tests
+- ✅ Analyze errors
+- ✅ Generate commit messages
+- ✅ Write PR descriptions
+- ✅ Review code changes
 
-Request body:
+### Advanced Features
+- ✅ Screenshot to code
+- ✅ Voice commands
+- ✅ Style adaptation
+- ✅ Multi-language support
+- ✅ Rollback changes
 
-```json
-{
-  "message": "Explain recursion simply",
-  "model": "llama3",
-  "effort": "medium",
-  "session_id": "optional-existing-chat-id",
-  "conversation": [
-    {
-      "role": "assistant",
-      "content": "Previous assistant message"
-    }
-  ]
-}
+---
+
+## 📊 Comparison with Other AI Tools
+
+| Feature | ISE AI | Claude Code | Cursor | Copilot |
+|---------|--------|-------------|--------|---------|
+| **Auto Mode** | ✅ | ✅ | ✅ | ❌ |
+| **Multi-File Editing** | ✅ | ✅ | ✅ | ⚠️ |
+| **Semantic Search** | ✅ | ✅ | ✅ | ❌ |
+| **Terminal Integration** | ✅ | ✅ | ✅ | ⚠️ |
+| **Screenshot Analysis** | ✅ | ✅ | ⚠️ | ❌ |
+| **Voice Commands** | ✅ | ❌ | ❌ | ❌ |
+| **Style Learning** | ✅ | ✅ | ⚠️ | ❌ |
+| **Git Integration** | ✅ | ✅ | ⚠️ | ⚠️ |
+| **Privacy (Local)** | ✅ | ❌ | ❌ | ❌ |
+| **Self-Hosted** | ✅ | ❌ | ❌ | ❌ |
+| **Free** | ✅ | ❌ | ⚠️ | ❌ |
+| **Fallback Mode** | ✅ | ❌ | ❌ | ❌ |
+
+**Legend:** ✅ Yes | ❌ No | ⚠️ Partial/Limited
+
+---
+
+## 📖 Documentation
+
+Detailed documentation is available in the [`/docs`](docs/) folder:
+
+| Document | Description |
+|----------|-------------|
+| [AUTONOMOUS_AGENT_GUIDE.md](docs/AUTONOMOUS_AGENT_GUIDE.md) | Complete agent documentation |
+| [ISE_AI_COMPARISON.md](docs/ISE_AI_COMPARISON.md) | Detailed comparison with competitors |
+| [MAJOR_IMPROVEMENTS_COMPLETE.md](docs/MAJOR_IMPROVEMENTS_COMPLETE.md) | Latest features and improvements |
+| [PROFESSIONAL_RESPONSE_IMPROVEMENT.md](docs/PROFESSIONAL_RESPONSE_IMPROVEMENT.md) | Response formatting guide |
+| [AGENT_QUICKSTART.md](docs/AGENT_QUICKSTART.md) | Quick start for agent mode |
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```bash
+# App Configuration
+APP_NAME="ISE AI"
+ENVIRONMENT=development
+
+# Ollama Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+DEFAULT_MODEL=llama3
+OLLAMA_IMAGE_MODEL=llava
+OLLAMA_VISION_MODEL=llava
+
+# Database Configuration
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=ise_ai
+
+# CORS Configuration
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+# Feature Flags
+ENABLE_RAG=true
+ENABLE_TERMINAL=true
+ENABLE_GIT_INTEGRATION=true
+ENABLE_VISION=true
 ```
 
-Streaming events:
+---
 
-- `{"type":"meta","model":"llama3","session_id":"...","storage_mode":"mongodb","profile_storage_mode":"mongodb"}`
-- `{"type":"token","content":"Recursion"}`
-- `{"type":"token","content":" is when..."}`
-- `{"type":"done"}`
-- `{"type":"error","message":"..."}` when streaming fails
+## 🤝 Contributing
 
-### `GET /api/models`
+We welcome contributions! Here's how you can help:
 
-Returns installed Ollama model names.
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Commit your changes**: `git commit -m 'Add amazing feature'`
+4. **Push to the branch**: `git push origin feature/amazing-feature`
+5. **Open a Pull Request**
 
-### Chat history endpoints
+### Development Setup
 
-- `GET /api/chats`
-- `GET /api/chats/{session_id}`
-- `DELETE /api/chats/{session_id}`
-- `DELETE /api/chats`
+```bash
+# Install dev dependencies
+pip install -r requirements-dev.txt
 
-### AI profile endpoints
+# Run tests
+pytest
 
-- `GET /api/ai/profile`
-- `PUT /api/ai/profile`
+# Lint code
+ruff check .
+black .
+```
 
-## Current Behavior
+---
 
-- The frontend can stop an in-progress generation with `AbortController`.
-- Existing sessions are reloaded from the backend instead of trusting stale frontend state.
-- New chats are represented as a temporary draft session in the UI.
-- The assistant can detect remember, show, and delete-memory requests.
-- The assistant asks for confirmation before deleting saved memory.
-- The assistant updates structured memory such as user name and assistant name automatically.
-- The UI exposes low, medium, and high response effort levels.
-- The agent can use multiple built-in tools such as memory inspection, profile lookup, model listing, and time lookup.
+## 📄 License
 
-## Why This Architecture Works
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- Provider logic is isolated, so a new model backend can be added without rewriting routes.
-- Memory and profile behavior are separated from raw chat generation.
-- Persistence logic is isolated from API handlers.
-- The frontend keeps a clear separation between layout, transcript rendering, and composer behavior.
-- The project can evolve toward tools, authentication, tests, and richer agent logic without a full redesign.
+---
 
-## Suggested Next Improvements
+## 🙏 Acknowledgments
 
-- Add automated tests for routes, service logic, and persistence fallbacks.
-- Move API URLs to frontend environment variables instead of hard-coded localhost values.
-- Add markdown rendering for assistant responses.
-- Add session rename support and timestamps in the UI.
-- Add explicit health checks for Ollama and MongoDB in the frontend.
+- **Ollama** - For providing local LLM inference
+- **FastAPI** - For the amazing web framework
+- **React** - For the frontend library
+- **All contributors** - For making ISE AI possible
 
-## Notes
+---
 
-- This project currently uses local infrastructure only.
-- Ollama is the default provider because it matches the local-first goal.
-- MongoDB is optional at runtime, but recommended for persistent history and memory.
+## 📬 Contact
+
+- **GitHub Issues**: [Report bugs or request features](https://github.com/yourusername/ise-ai/issues)
+- **Discussions**: [Join the conversation](https://github.com/yourusername/ise-ai/discussions)
+
+---
+
+<div align="center">
+
+**Made with ❤️ by the ISE AI Team**
+
+⭐ **Star this repo if you find it useful!**
+
+</div>

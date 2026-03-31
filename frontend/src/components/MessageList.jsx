@@ -1,4 +1,5 @@
 import RichMessage from "./RichMessage";
+import { useState } from "react";
 
 function AttachmentList({ attachments }) {
   if (!attachments || attachments.length === 0) {
@@ -12,6 +13,64 @@ function AttachmentList({ attachments }) {
           {attachment.kind.toUpperCase()} · {attachment.name}
         </span>
       ))}
+    </div>
+  );
+}
+
+function AgentProgressLog({ content }) {
+  // Detect agent progress logs in content
+  // Format: 🔧 **Task** followed by action items with ✅ 🔄 ⏳ ❌
+  
+  const agentLogPattern = /🔧\s+\*\*(.+?)\*\*/;
+  const actionPattern = /(✅|🔄|⏳|❌)\s+\*\*(\w+):\*\*\s+(.+?)(?=\n(?:✅|🔄|⏳|❌|$))/gs;
+  
+  const isAgentLog = agentLogPattern.test(content);
+  
+  if (!isAgentLog) {
+    return null;
+  }
+  
+  const match = content.match(agentLogPattern);
+  const taskName = match ? match[1] : "Agent Task";
+  
+  const actions = [];
+  let actionMatch;
+  while ((actionMatch = actionPattern.exec(content)) !== null) {
+    const iconMap = {
+      "✅": "completed",
+      "🔄": "in-progress",
+      "⏳": "pending",
+      "❌": "failed",
+    };
+    
+    actions.push({
+      icon: actionMatch[1],
+      status: iconMap[actionMatch[1]] || "pending",
+      actionType: actionMatch[2],
+      description: actionMatch[3].trim(),
+    });
+  }
+  
+  return (
+    <div className="agent-progress-log">
+      <div className="agent-progress-header">
+        <span className="agent-progress-icon">🤖</span>
+        <span className="agent-progress-title">Agent Mode: {taskName}</span>
+      </div>
+      <div className="agent-progress-actions">
+        {actions.map((action, index) => (
+          <div
+            key={index}
+            className={`agent-progress-action ${action.status}`}
+          >
+            <span className="agent-progress-action-icon">{action.icon}</span>
+            <div className="agent-progress-action-content">
+              <span className="agent-progress-action-type">{action.actionType}</span>
+              <span className="agent-progress-action-desc">{action.description}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -153,6 +212,7 @@ function MessageBubbleWithAttachments({
         <AttachmentList attachments={attachments} />
         {isAssistant ? <SearchLogList searchLogs={searchLogs} /> : null}
         {isAssistant ? <ImageIntelLogList imageLogs={imageLogs} /> : null}
+        {isAssistant ? <AgentProgressLog content={content} /> : null}
         <RichMessage content={content || " "} />
       </div>
     </article>

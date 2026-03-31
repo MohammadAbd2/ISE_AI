@@ -4,7 +4,12 @@
       "Bash(cat *)",
       "Bash(python *)",
       "Bash(timeout *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(source *)",
+      "Bash(pip install *)",
+      "Bash(mkdir *)",
+      "Bash(rm *)",
+      "Bash(find *)"
     ]
   },
   "$version": 3
