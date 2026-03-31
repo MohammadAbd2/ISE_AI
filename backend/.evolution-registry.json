@@ -32,5 +32,18 @@
     "metadata": {
       "provider": "pending"
     }
+  },
+  "image_generation": {
+    "name": "image_generation",
+    "description": "Generate images from text prompts using SD Turbo",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-03-31T16:35:03.867031+00:00",
+    "metadata": {
+      "model": "stabilityai/sd-turbo",
+      "library": "diffusers",
+      "auto_generated": true,
+      "steps": 1
+    }
   }
 }

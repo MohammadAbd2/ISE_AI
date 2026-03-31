@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 function tokenizeLine(line) {
   const pattern =
     /(#[^\n]*|\/\/[^\n]*|"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|`(?:\\.|[^`])*`|\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|continue|try|catch|finally|class|new|import|from|export|default|async|await|def|pass|raise|yield|lambda|None|True|False|null|true|false|public|private|protected|static|using|namespace|string|int|bool|void|Console|print)\b|\b\d+(?:\.\d+)?\b)/g;
@@ -87,17 +89,115 @@ function TextBlock({ content }) {
   ));
 }
 
+function GeneratedImage({ imageBase64, prompt, width, height }) {
+  const imageUrl = `data:image/png;base64,${imageBase64}`;
+  const [showPreview, setShowPreview] = useState(false);
+
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = `generated-image-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleOpenPreview = () => {
+    setShowPreview(true);
+  };
+
+  const handleClosePreview = () => {
+    setShowPreview(false);
+  };
+
+  return (
+    <div className="generated-image-container">
+      <div className="generated-image-card">
+        <div className="generated-image-header">
+          <span className="generated-image-badge">🎨 Generated Image</span>
+          <span className="generated-image-info">{width}×{height}</span>
+        </div>
+        <div className="generated-image-wrapper">
+          <img
+            src={imageUrl}
+            alt={prompt || "Generated image"}
+            className="generated-image"
+            loading="lazy"
+          />
+        </div>
+        <div className="generated-image-actions">
+          <button
+            type="button"
+            className="image-action-button preview"
+            onClick={handleOpenPreview}
+          >
+            👁 Preview
+          </button>
+          <button
+            type="button"
+            className="image-action-button download"
+            onClick={handleDownload}
+          >
+            ⬇ Download
+          </button>
+        </div>
+        {prompt ? (
+          <p className="generated-image-prompt">
+            <strong>Prompt:</strong> {prompt}
+          </p>
+        ) : null}
+      </div>
+
+      {showPreview && (
+        <div className="image-preview-overlay" onClick={handleClosePreview}>
+          <div className="image-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="image-preview-close"
+              onClick={handleClosePreview}
+            >
+              ✕
+            </button>
+            <img
+              src={imageUrl}
+              alt="Preview"
+              className="image-preview-full"
+            />
+            <div className="image-preview-actions">
+              <button
+                type="button"
+                className="image-action-button download"
+                onClick={handleDownload}
+              >
+                ⬇ Download Full Size
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RichMessage({ content }) {
   const segments = [];
   const regex = /```(\w+)?\n([\s\S]*?)```/g;
   let lastIndex = 0;
   let match;
 
-  while ((match = regex.exec(content)) !== null) {
+  // Check for generated image metadata in the content
+  // Format: [IMAGE_DATA:base64|width:512|height:512|prompt:text]
+  const imageRegex = /\[IMAGE_DATA:([A-Za-z0-9+/=]+)\|width:(\d+)\|height:(\d+)\|prompt:([^\]]*)\]/;
+  const imageMatch = content.match(imageRegex);
+  
+  // Remove image metadata from content for display
+  const textContent = imageMatch ? content.replace(imageMatch[0], "").trim() : content;
+
+  while ((match = regex.exec(textContent)) !== null) {
     if (match.index > lastIndex) {
       segments.push({
         type: "text",
-        content: content.slice(lastIndex, match.index),
+        content: textContent.slice(lastIndex, match.index),
       });
     }
     segments.push({
@@ -108,15 +208,23 @@ export default function RichMessage({ content }) {
     lastIndex = regex.lastIndex;
   }
 
-  if (lastIndex < content.length) {
+  if (lastIndex < textContent.length) {
     segments.push({
       type: "text",
-      content: content.slice(lastIndex),
+      content: textContent.slice(lastIndex),
     });
   }
 
   return (
     <div className="rich-message">
+      {imageMatch ? (
+        <GeneratedImage
+          imageBase64={imageMatch[1]}
+          width={parseInt(imageMatch[2], 10)}
+          height={parseInt(imageMatch[3], 10)}
+          prompt={imageMatch[4]}
+        />
+      ) : null}
       {segments.length === 0 ? (
         <TextBlock content={content} />
       ) : (

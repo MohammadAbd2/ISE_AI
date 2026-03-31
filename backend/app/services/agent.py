@@ -21,12 +21,15 @@ from backend.app.services.profile import (
     parse_memory_intent,
 )
 from backend.app.services.tools import AgentToolbox
-from backend.app.services.evolution_agent import EvolutionAgent, get_evolution_agent
 from backend.app.services.capability_gap_detector import (
     CapabilityGapDetector,
     get_capability_gap_detector,
 )
 from backend.app.services.evolution_session import get_evolution_session_manager
+from backend.app.services.autonomous_developer import (
+    AutonomousDeveloper,
+    get_autonomous_developer,
+)
 
 
 @dataclass(slots=True)
@@ -42,7 +45,7 @@ class AgentDecision:
 class ChatAgent:
     """
     Thin orchestration layer for conversation policy.
-    Now includes evolution detection for autonomous capability development.
+    Includes autonomous self-development capabilities.
     """
 
     def __init__(
@@ -50,7 +53,6 @@ class ChatAgent:
         service: ChatService,
         profile_service: ProfileService,
         history_service: HistoryService | None = None,
-        evolution_agent: EvolutionAgent | None = None,
         gap_detector: CapabilityGapDetector | None = None,
     ) -> None:
         self.service = service
@@ -58,10 +60,11 @@ class ChatAgent:
         self.history_service = history_service
         self.toolbox = AgentToolbox(chat_service=service, profile_service=profile_service)
         self.orchestrator = get_multi_agent_orchestrator(self.toolbox)
-        self.evolution_agent = evolution_agent or get_evolution_agent()
         self.gap_detector = gap_detector or get_capability_gap_detector()
         # Use global session manager for persistent pending capabilities
         self.session_manager = get_evolution_session_manager()
+        # Autonomous developer for self-improvement
+        self.developer = get_autonomous_developer()
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
@@ -145,14 +148,14 @@ class ChatAgent:
         attachments: list[ChatAttachment],
     ) -> AgentDecision:
         profile = await self.profile_service.get_profile()
-        
-        # NEW: Check if user is approving a pending capability development
+
+        # Check if user is approving a pending capability development
         if session_id:
             pending_capability = self.session_manager.get_pending_capability(session_id)
             if pending_capability and self._is_approval(user_message):
                 # Clear the pending offer
                 self.session_manager.clear_pending(session_id)
-                
+
                 # Start autonomous development
                 try:
                     development_reply = await self._develop_capability(pending_capability)
@@ -161,23 +164,26 @@ class ChatAgent:
                     return AgentDecision(
                         reply=f"Failed to develop {pending_capability}: {str(e)}"
                     )
-        
-        # NEW: Check for capability gaps and offer development
-        try:
-            evolution_decision = await self.evolution_agent.analyze_request(user_message)
-            if evolution_decision.action == "offer_development":
+
+        # Check for capability gaps and offer development
+        # But first check if capability was already developed
+        gaps = self.gap_detector.detect_gaps(user_message)
+        if gaps:
+            gap = gaps[0]
+            
+            # Check if capability is now available (was just developed)
+            from backend.app.services.capability_registry import get_capability_registry
+            registry = get_capability_registry()
+            if registry.has_capability(gap.capability_name):
+                # Capability is available, let the orchestrator handle it
+                pass  # Continue to orchestrator
+            else:
                 # Track this pending capability for this session
                 if session_id:
-                    self.session_manager.offer_capability(
-                        session_id, 
-                        evolution_decision.capability
-                    )
+                    self.session_manager.offer_capability(session_id, gap.capability_name)
                 # Return the offer message
-                return AgentDecision(reply=evolution_decision.message)
-        except Exception as e:
-            # If evolution analysis fails, continue with normal flow
-            pass
-        
+                return AgentDecision(reply=gap.suggested_action)
+
         pending_reply = await self._handle_pending_confirmation(user_message, session_id)
         if pending_reply is not None:
             return AgentDecision(reply=pending_reply)
@@ -339,36 +345,35 @@ class ChatAgent:
 
     async def _develop_capability(self, capability_name: str) -> str:
         """
-        Trigger autonomous capability development.
+        Trigger autonomous capability development with progress logging.
         
+        This is similar to how Qwen Code develops features:
+        1. Search for models/packages
+        2. Download and install
+        3. Generate integration code
+        4. Test and validate
+        5. Show progress logs throughout
+
         Args:
             capability_name: Name of capability to develop
-            
+
         Returns:
-            Response message to user
+            Response message with progress logs
         """
         try:
-            # Log the development request
-            self.evolution_agent.evolution_logger.log_event(
-                event_type="capability_approved",
-                capability=capability_name,
-                status="in_progress",
-                description=f"Starting autonomous development of {capability_name}",
-            )
+            # Start autonomous development
+            progress = await self.developer.develop_capability(capability_name)
             
-            # Start development workflow
-            development_decision = await self.evolution_agent.develop_capability(
-                capability_name=capability_name
-            )
+            # Return progress log
+            return progress.to_log_string()
             
-            if development_decision.action == "completed":
-                return f"✅ Successfully developed **{capability_name}** capability!\n\n{development_decision.message}"
-            elif development_decision.action == "in_progress":
-                return f"🔄 Developing **{capability_name}** capability...\n\n{development_decision.message}"
-            else:
-                return f"❌ Could not develop {capability_name}:\n{development_decision.message}"
         except Exception as e:
-            error_msg = f"Error during capability development: {str(e)}"
+            import traceback
+            error_msg = (
+                f"❌ Error during capability development:\n\n"
+                f"```\n{str(e)}\n```\n\n"
+                f"Stack trace:\n```\n{traceback.format_exc()}\n```"
+            )
             return error_msg
 
     async def _stream_text(self, text: str) -> AsyncIterator[str]:

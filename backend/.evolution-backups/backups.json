@@ -1,1 +1,40 @@
-{"backups": [], "current": null}
+{
+  "backups": [
+    {
+      "id": "20260331_152554",
+      "timestamp": "2026-03-31T15:25:54.745996+00:00",
+      "reason": "Pre-development backup for image_generation",
+      "files": null,
+      "status": "success"
+    },
+    {
+      "id": "20260331_152803",
+      "timestamp": "2026-03-31T15:28:03.231710+00:00",
+      "reason": "Pre-development backup for image_generation",
+      "files": null,
+      "status": "success"
+    },
+    {
+      "id": "20260331_152855",
+      "timestamp": "2026-03-31T15:28:55.235760+00:00",
+      "reason": "Pre-development backup for image_generation",
+      "files": null,
+      "status": "success"
+    },
+    {
+      "id": "20260331_152938",
+      "timestamp": "2026-03-31T15:29:38.126282+00:00",
+      "reason": "Pre-development backup for image_generation",
+      "files": null,
+      "status": "success"
+    },
+    {
+      "id": "20260331_153201",
+      "timestamp": "2026-03-31T15:32:01.916610+00:00",
+      "reason": "Pre-development backup for image_generation",
+      "files": null,
+      "status": "success"
+    }
+  ],
+  "current": "20260331_153201"
+}

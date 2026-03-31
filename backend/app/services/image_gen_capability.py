@@ -95,20 +95,20 @@ class ImageGenerationCapability:
         """Install required dependencies for image generation."""
         try:
             dependencies = ["diffusers", "pillow", "numpy", "safetensors", "transformers"]
-            
+
             # Check if torch is installed
-            result = await self.tool_executor.execute_command(
-                "python", ["-c", "import torch; print('torch installed')"]
+            result = self.tool_executor.execute_command(
+                "python -c \"import torch; print('torch installed')\""
             )
-            
+
             if result.get("returncode") != 0:
                 # PyTorch not installed, add it
                 dependencies.insert(0, "torch")
 
             # Install each dependency
             for dep in dependencies:
-                result = await self.tool_executor.execute_command(
-                    "pip", ["install", "--quiet", dep]
+                result = self.tool_executor.execute_command(
+                    f"pip install --quiet {dep}"
                 )
                 if result.get("returncode") != 0:
                     return False, f"Failed to install {dep}"
@@ -134,7 +134,9 @@ from pathlib import Path
 
 try:
     from diffusers import FluxPipeline, StableDiffusionPipeline
+    from huggingface_hub import login
     import torch
+    import os
     from PIL import Image
     HAS_DIFFUSERS = True
 except ImportError:
@@ -148,6 +150,15 @@ class ImageGenerationService:
         self.pipeline = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.current_model = None
+        
+        # Authenticate with Hugging Face if token is available
+        hf_token = os.getenv("HF_TOKEN")
+        if hf_token:
+            try:
+                login(token=hf_token)
+                print("✓ Authenticated with Hugging Face")
+            except Exception as e:
+                print(f"Warning: HF authentication failed: {e}")
 
     async def load_model(self, model_name: str = "flux-1") -> bool:
         """Load image generation model."""
@@ -324,15 +335,15 @@ async def generate_image_endpoint(request: ImageGenerationRequest):
                 return False, "Implementation files not created"
 
             # Try to compile the Python files
-            result = await self.tool_executor.execute_command(
-                "python", ["-m", "py_compile", str(service_path)]
+            result = self.tool_executor.execute_command(
+                f"python -m py_compile {str(service_path)}"
             )
 
             if result.get("returncode") != 0:
                 return False, "Service module has syntax errors"
 
-            result = await self.tool_executor.execute_command(
-                "python", ["-m", "py_compile", str(endpoint_path)]
+            result = self.tool_executor.execute_command(
+                f"python -m py_compile {str(endpoint_path)}"
             )
 
             if result.get("returncode") != 0:

@@ -39,8 +39,25 @@ class CapabilityGapDetector:
                 "illustration",
                 "visual",
                 "picture",
+                "create a logo",
+                "make a logo",
+                "design a logo",
+                "draw me",
+                "text to image",
+                "produce an image",
+                "imagine a",
+                "generate a picture",
+                "create a picture",
             ],
-            suggested_action="I don't have image generation capability yet. Would you like me to develop it? I can integrate Flux or Stable Diffusion models.",
+            suggested_action=(
+                "I don't have image generation capability yet. "
+                "Would you like me to develop it? I can:\n\n"
+                "1. 🔍 Search Hugging Face for the best image generation model (like FLUX.1)\n"
+                "2. 📦 Download and install the required packages\n"
+                "3. 💻 Generate integration code automatically\n"
+                "4. ✅ Test and validate the implementation\n\n"
+                "This will take 2-5 minutes. Reply **yes** to start autonomous development."
+            ),
             complexity="complex",
         ),
         "web_scraping": CapabilityGap(
@@ -63,8 +80,19 @@ class CapabilityGapDetector:
                 "create video",
                 "animation",
                 "video synthesis",
+                "make a video",
+                "produce video",
+                "text to video",
             ],
-            suggested_action="I don't have video generation capability. This is complex. Would you like me to develop it?",
+            suggested_action=(
+                "I don't have video generation capability yet. "
+                "Would you like me to develop it? I can:\n\n"
+                "1. 🔍 Search Hugging Face for video generation models (like Stable Video Diffusion)\n"
+                "2. 📦 Install required packages\n"
+                "3. 💻 Create the integration code\n"
+                "4. ✅ Validate the implementation\n\n"
+                "This will take 3-7 minutes. Reply **yes** to start autonomous development."
+            ),
             complexity="complex",
         ),
         "audio_generation": CapabilityGap(
