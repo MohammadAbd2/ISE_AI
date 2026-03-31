@@ -22,6 +22,7 @@ from backend.app.services.evolution_logger import (
 )
 from backend.app.services.implementation_verifier import ImplementationVerifier
 from backend.app.services.tool_executor import ToolExecutor
+from backend.app.services.image_gen_capability import ImageGenerationCapability
 
 
 @dataclass
@@ -144,17 +145,62 @@ class EvolutionAgent:
         )
 
         try:
-            # Placeholder: In real implementation, would research and implement
-            # For now, return a plan
-            return EvolutionDecision(
-                action="proceed",
-                capability=capability_name,
-                message=f"Ready to develop {capability_name}. Awaiting implementation details.",
-                details={
-                    "backup_id": backup.get("id"),
-                    "status": "awaiting_implementation",
-                },
-            )
+            # Route to appropriate capability implementation
+            if capability_name == "image_generation":
+                success, message = await self._develop_image_generation()
+            else:
+                return EvolutionDecision(
+                    action="decline",
+                    capability=capability_name,
+                    message=f"Development for {capability_name} is not yet supported",
+                )
+
+            if success:
+                # Mark capability as available
+                self.capability_registry.update_status(
+                    capability_name, CapabilityStatus.AVAILABLE
+                )
+
+                # Log success
+                self.evolution_logger.log_event(
+                    event_type=EvolutionEventType.IMPLEMENTATION_COMPLETED,
+                    capability=capability_name,
+                    status=EventStatus.COMPLETED,
+                    description=f"Successfully developed {capability_name}",
+                    details={"backup_id": backup.get("id")},
+                )
+
+                return EvolutionDecision(
+                    action="completed",
+                    capability=capability_name,
+                    message=message,
+                    details={
+                        "backup_id": backup.get("id"),
+                        "status": "deployed",
+                    },
+                )
+            else:
+                # Log failure
+                self.evolution_logger.log_event(
+                    event_type=EvolutionEventType.ERROR_OCCURRED,
+                    capability=capability_name,
+                    status=EventStatus.FAILED,
+                    description=f"Failed to develop {capability_name}: {message}",
+                    rollback_backup_id=backup.get("id"),
+                )
+
+                # Revert capability status
+                self.capability_registry.update_status(
+                    capability_name, CapabilityStatus.FAILED
+                )
+
+                return EvolutionDecision(
+                    action="failed",
+                    capability=capability_name,
+                    message=message,
+                    details={"backup_id": backup.get("id")},
+                )
+
         except Exception as e:
             # Log failure
             self.evolution_logger.log_event(
@@ -176,6 +222,18 @@ class EvolutionAgent:
                 message=f"Failed to develop {capability_name}: {str(e)}",
                 details={"backup_id": backup.get("id")},
             )
+
+    async def _develop_image_generation(self) -> tuple[bool, str]:
+        """Implement image generation capability."""
+        try:
+            capability = ImageGenerationCapability(
+                tool_executor=self.tool_executor,
+                verifier=self.verifier,
+                logger=self.evolution_logger,
+            )
+            return await capability.research_and_implement()
+        except Exception as e:
+            return False, f"Error developing image generation: {str(e)}"
 
     async def validate_implementation(
         self, file_path: str, capability_name: str

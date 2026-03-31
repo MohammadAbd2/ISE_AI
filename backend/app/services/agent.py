@@ -59,6 +59,8 @@ class ChatAgent:
         self.orchestrator = get_multi_agent_orchestrator(self.toolbox)
         self.evolution_agent = evolution_agent or get_evolution_agent()
         self.gap_detector = gap_detector or get_capability_gap_detector()
+        # Track pending capability development offers per session
+        self.pending_capabilities: dict[str, str] = {}  # session_id -> capability_name
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
@@ -143,11 +145,29 @@ class ChatAgent:
     ) -> AgentDecision:
         profile = await self.profile_service.get_profile()
         
+        # NEW: Check if user is approving a pending capability development
+        if session_id and session_id in self.pending_capabilities:
+            if self._is_approval(user_message):
+                capability_name = self.pending_capabilities[session_id]
+                del self.pending_capabilities[session_id]
+                
+                # Start autonomous development
+                try:
+                    development_reply = await self._develop_capability(capability_name)
+                    return AgentDecision(reply=development_reply)
+                except Exception as e:
+                    return AgentDecision(
+                        reply=f"Failed to develop {capability_name}: {str(e)}"
+                    )
+        
         # NEW: Check for capability gaps and offer development
         try:
             evolution_decision = await self.evolution_agent.analyze_request(user_message)
             if evolution_decision.action == "offer_development":
-                # AI detected a missing capability and should offer to develop it
+                # Track this pending capability for this session
+                if session_id:
+                    self.pending_capabilities[session_id] = evolution_decision.capability
+                # Return the offer message
                 return AgentDecision(reply=evolution_decision.message)
         except Exception as e:
             # If evolution analysis fails, continue with normal flow
@@ -300,6 +320,51 @@ class ChatAgent:
                 return f"Removed saved memory related to `{query}`."
             return f"No saved memory entry matched `{query}`."
         return "There was no valid pending action to execute."
+
+    def _is_approval(self, message: str) -> bool:
+        """Check if message is an approval response."""
+        lower = message.lower().strip()
+        approval_responses = [
+            "yes", "y", "ok", "okay", "sure", "go ahead", "develop it",
+            "develop my skills", "improve yourself", "add it", "install it"
+        ]
+        return lower in approval_responses or any(
+            lower.startswith(resp) for resp in approval_responses
+        )
+
+    async def _develop_capability(self, capability_name: str) -> str:
+        """
+        Trigger autonomous capability development.
+        
+        Args:
+            capability_name: Name of capability to develop
+            
+        Returns:
+            Response message to user
+        """
+        try:
+            # Log the development request
+            self.evolution_agent.evolution_logger.log_event(
+                event_type="capability_approved",
+                capability=capability_name,
+                status="in_progress",
+                description=f"Starting autonomous development of {capability_name}",
+            )
+            
+            # Start development workflow
+            development_decision = await self.evolution_agent.develop_capability(
+                capability_name=capability_name
+            )
+            
+            if development_decision.action == "completed":
+                return f"✅ Successfully developed **{capability_name}** capability!\n\n{development_decision.message}"
+            elif development_decision.action == "in_progress":
+                return f"🔄 Developing **{capability_name}** capability...\n\n{development_decision.message}"
+            else:
+                return f"❌ Could not develop {capability_name}:\n{development_decision.message}"
+        except Exception as e:
+            error_msg = f"Error during capability development: {str(e)}"
+            return error_msg
 
     async def _stream_text(self, text: str) -> AsyncIterator[str]:
         yield text
