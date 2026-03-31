@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.routes import router
+from backend.app.api.evolution_routes import evolution_router
 from backend.app.core.config import settings
 
 
@@ -9,7 +10,7 @@ from backend.app.core.config import settings
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    description="Local AI chatbot backend with agent-oriented architecture.",
+    description="Local AI chatbot backend with agent-oriented architecture and self-evolution capabilities.",
 )
 
 app.add_middleware(
@@ -21,3 +22,4 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(evolution_router)

@@ -1,0 +1,36 @@
+{
+  "text_generation": {
+    "name": "text_generation",
+    "description": "Generate text responses using language models",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-03-31T13:54:11.639647+00:00",
+    "metadata": {
+      "default": true,
+      "models": [
+        "llama3",
+        "mistral"
+      ]
+    }
+  },
+  "memory_management": {
+    "name": "memory_management",
+    "description": "Store and retrieve user information and preferences",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-03-31T13:54:11.639784+00:00",
+    "metadata": {
+      "default": true
+    }
+  },
+  "web_search": {
+    "name": "web_search",
+    "description": "Search the web for information",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-03-31T13:54:11.639877+00:00",
+    "metadata": {
+      "provider": "pending"
+    }
+  }
+}

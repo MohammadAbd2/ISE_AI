@@ -34,6 +34,7 @@ def _get_env(key: str, default: str) -> str:
 @dataclass(slots=True)
 class Settings:
     """Centralized runtime configuration shared across the backend."""
+    backend_root: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent)
     app_name: str = _get_env("APP_NAME", "ISE AI Chatbot")
     environment: str = _get_env("ENVIRONMENT", "development")
     ollama_base_url: str = _get_env("OLLAMA_BASE_URL", "http://localhost:11434")

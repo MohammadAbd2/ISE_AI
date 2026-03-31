@@ -2,6 +2,8 @@
 
 ISE AI is a local-first chatbot project with a React frontend and a FastAPI backend. It is designed to feel like a modern ChatGPT-style interface while keeping the internals simple to extend with new models, memory behavior, persistence, and future agent features.
 
+**NEW: Self-Evolution Capabilities** 🚀 - The AI can now autonomously develop new features and capabilities in response to your requests!
+
 ## Homepage Preview
 
 ![ISE AI homepage](assets/ISE_AI_HomePage.png)
@@ -16,6 +18,7 @@ ISE AI is a local-first chatbot project with a React frontend and a FastAPI back
 - Supports three response effort levels: `low`, `medium`, and `high`.
 - Includes an internal agent layer that can use multiple built-in tools.
 - Keeps backend responsibilities split into API, service, provider, and schema layers.
+- **NEW: Self-evolution system** - AI can detect missing capabilities and develop them autonomously with user approval and full rollback support.
 
 ## Technology Stack
 

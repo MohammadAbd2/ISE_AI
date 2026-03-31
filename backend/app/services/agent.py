@@ -21,6 +21,11 @@ from backend.app.services.profile import (
     parse_memory_intent,
 )
 from backend.app.services.tools import AgentToolbox
+from backend.app.services.evolution_agent import EvolutionAgent, get_evolution_agent
+from backend.app.services.capability_gap_detector import (
+    CapabilityGapDetector,
+    get_capability_gap_detector,
+)
 
 
 @dataclass(slots=True)
@@ -36,7 +41,7 @@ class AgentDecision:
 class ChatAgent:
     """
     Thin orchestration layer for conversation policy.
-    Add tool routing, memory, or multi-agent delegation here later.
+    Now includes evolution detection for autonomous capability development.
     """
 
     def __init__(
@@ -44,12 +49,16 @@ class ChatAgent:
         service: ChatService,
         profile_service: ProfileService,
         history_service: HistoryService | None = None,
+        evolution_agent: EvolutionAgent | None = None,
+        gap_detector: CapabilityGapDetector | None = None,
     ) -> None:
         self.service = service
         self.profile_service = profile_service
         self.history_service = history_service
         self.toolbox = AgentToolbox(chat_service=service, profile_service=profile_service)
         self.orchestrator = get_multi_agent_orchestrator(self.toolbox)
+        self.evolution_agent = evolution_agent or get_evolution_agent()
+        self.gap_detector = gap_detector or get_capability_gap_detector()
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
@@ -133,6 +142,17 @@ class ChatAgent:
         attachments: list[ChatAttachment],
     ) -> AgentDecision:
         profile = await self.profile_service.get_profile()
+        
+        # NEW: Check for capability gaps and offer development
+        try:
+            evolution_decision = await self.evolution_agent.analyze_request(user_message)
+            if evolution_decision.action == "offer_development":
+                # AI detected a missing capability and should offer to develop it
+                return AgentDecision(reply=evolution_decision.message)
+        except Exception as e:
+            # If evolution analysis fails, continue with normal flow
+            pass
+        
         pending_reply = await self._handle_pending_confirmation(user_message, session_id)
         if pending_reply is not None:
             return AgentDecision(reply=pending_reply)
