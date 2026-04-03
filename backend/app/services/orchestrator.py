@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -171,20 +172,21 @@ class ExecutionAgent:
 
 class CodingAgent:
     """
-    Autonomous coding agent for development tasks.
-    
-    Uses LLM-powered reasoning to:
-    - Understand any development task in natural language
-    - Plan and execute multi-step solutions
-    - Create new tools when needed
-    - Write complete functional code (not templates)
-    - Test and validate its own work
+    Intelligent coding agent with context understanding.
+
+    NO TEMPLATES - Uses AI understanding to:
+    - Analyze task context intelligently
+    - Determine appropriate language/framework
+    - Generate contextually appropriate code
+    - Create proper file structures based on context
     """
     name = "coding-agent"
 
     def __init__(self) -> None:
-        from backend.app.services.autonomous_agent import get_autonomous_agent
-        self.coding_agent = get_autonomous_agent()
+        from backend.app.services.intelligent_coding_agent import get_intelligent_coding_agent
+        from backend.app.services.planning_agent import get_planning_agent
+        self.coding_agent = get_intelligent_coding_agent()
+        self.planning_agent = get_planning_agent()
 
     def should_code(self, user_message: str) -> bool:
         """Check if user is requesting a coding/development task."""
@@ -225,6 +227,9 @@ class CodingAgent:
 
             # Encryption/security
             "encrypt", "decrypt", "security", "authentication", "authorization",
+            
+            # Multi-step tasks
+            "then", "next", "after that", "first", "second", "third",
         ]
 
         if any(trigger in lower for trigger in dev_triggers):
@@ -242,7 +247,6 @@ class CodingAgent:
             r"(?:create|make|build)\s+(?:a|an)?\s*\w+\s+(?:file|tool|utility|service|component)",
         ]
 
-        import re
         for pattern in tech_patterns:
             if re.search(pattern, user_message):
                 return True
@@ -250,40 +254,94 @@ class CodingAgent:
         return False
 
     async def run(self, session_id: str | None, user_message: str) -> OrchestratorResult:
-        """Execute autonomous coding task using LLM-powered agent."""
+        """Execute autonomous coding task with intelligent context understanding."""
+        # CRITICAL: Always execute coding tasks, don't let LLM describe them
         if session_id is None:
-            return OrchestratorResult()
+            # Create a default session ID if none provided
+            session_id = "default-session"
 
         if not self.should_code(user_message):
             return OrchestratorResult()
 
         try:
-            # Initialize agent if needed
-            await self.coding_agent.initialize()
-            
-            # Execute the task autonomously
-            progress = await self.coding_agent.execute_task(user_message)
+            # Check if task has multiple steps (needs planning)
+            has_multiple_steps = self._has_multiple_steps(user_message)
 
-            # Format the progress as a detailed log
-            log_output = progress.to_log_string()
+            if has_multiple_steps:
+                # Use planning agent for multi-step tasks
+                print(f"🔧 [CodingAgent] Multi-step task detected, using planning agent...")
+                plan = await self.planning_agent.execute_task_with_plan(user_message)
 
-            if progress.overall_status == "completed":
-                return OrchestratorResult(
-                    direct_reply=f"✅ **Development Task Complete**\n\n{log_output}",
-                    used_agents=[self.name],
-                )
+                # Format the plan as a detailed log
+                log_output = plan.to_log_string()
+                print(f"✅ [CodingAgent] Plan executed: {plan.completed_steps}/{plan.total_steps} steps")
+
+                if plan.status.value == "completed":
+                    return OrchestratorResult(
+                        direct_reply=f"✅ **Task Complete**\n\n{log_output}",
+                        used_agents=[self.name],
+                    )
+                else:
+                    return OrchestratorResult(
+                        direct_reply=f"⚠️ **Task Status**\n\n{log_output}",
+                        used_agents=[self.name],
+                    )
             else:
-                return OrchestratorResult(
-                    tool_context=[f"Coding task status: {progress.final_result}"],
-                    used_agents=[self.name],
-                )
+                # Use intelligent coding agent for single-step tasks
+                print(f"🔧 [CodingAgent] Single-step task, using intelligent coding agent...")
+                await self.coding_agent.initialize()
+                progress = await self.coding_agent.execute_task(user_message)
+
+                # Format the progress as a detailed log
+                log_output = progress.to_log_string()
+                print(f"✅ [CodingAgent] Task completed: {progress.message}")
+
+                if progress.overall_status == "completed":
+                    return OrchestratorResult(
+                        direct_reply=f"✅ **Development Task Complete**\n\n{log_output}",
+                        used_agents=[self.name],
+                    )
+                else:
+                    return OrchestratorResult(
+                        direct_reply=f"⚠️ **Task Status**\n\n{log_output}",
+                        used_agents=[self.name],
+                    )
 
         except Exception as e:
             import traceback
+            error_msg = f"❌ **Coding Agent Error**\n\n```\n{str(e)}\n```\n\nStack trace:\n```\n{traceback.format_exc()}\n```"
+            print(f"❌ [CodingAgent] Error: {e}")
             return OrchestratorResult(
-                tool_context=[f"Coding agent error: {str(e)}\n\n{traceback.format_exc()}"],
+                direct_reply=error_msg,
                 used_agents=[self.name],
             )
+
+    def _has_multiple_steps(self, task: str) -> bool:
+        """Check if a task has multiple steps that require planning."""
+        task_lower = task.lower()
+        
+        # Check for step indicators
+        step_indicators = [
+            r"\bthen\b",
+            r"\band then\b",
+            r"\bnext\b",
+            r"\bfirst\b.*?\bsecond\b",
+            r"\d+\.\s",  # "1. do this 2. do that"
+            r"\bstep\s+\d+\b",
+        ]
+        
+        for pattern in step_indicators:
+            if re.search(pattern, task_lower):
+                return True
+        
+        # Check for multiple actions
+        action_count = 0
+        actions = ["create", "update", "edit", "delete", "show", "run", "execute"]
+        for action in actions:
+            if action in task_lower:
+                action_count += 1
+        
+        return action_count >= 2
 
 
 class VideoGenerationAgent:
@@ -330,59 +388,56 @@ class ImageGenerationAgent:
 
         lower = user_message.lower()
 
-        # Comprehensive list of image generation triggers
-        image_triggers = [
-            # Generate variations
-            "generate image", "generate picture", "generate photo", "generate art",
-            "generate a", "generate an", "generate the",
-            # Create variations
-            "create image", "create picture", "create photo", "create art",
-            "create a", "create an", "create the",
-            # Draw variations
-            "draw me", "draw a", "draw an", "draw the", "draw",
-            # Make variations
-            "make an image", "make a picture", "make a photo", "make art",
-            "make me a", "make me an", "make me",
-            # Show variations
-            "show me a picture", "show me an image", "show me a photo",
-            "show me the", "show me",
-            # Other triggers
-            "random image", "random picture", "random photo",
-            "image of", "picture of", "photo of",
-            "i want to see", "i'd like to see", "i want", "i need",
-            "can you generate", "can you create", "can you draw", "can you make",
-            "please generate", "please create", "please draw", "please make",
-        ]
-
-        # Check for any trigger
-        if any(trigger in lower for trigger in image_triggers):
-            # Exclude if it's clearly about something else
-            exclude_patterns = [
-                "generate code", "generate text", "generate response",
-                "create a function", "create a class", "create a variable",
-                "draw a card", "draw from", "make a call", "make a request",
-                "show me the code", "show me how",
-            ]
-            if not any(exclude in lower for exclude in exclude_patterns):
-                return True
-
-        # Check for descriptive requests (e.g., "a cat", "sunset", "mountain landscape")
-        descriptive_patterns = [
-            r"^(a|an|the)\s+[a-z]{3,}(?:\s+of\s+)?",  # "a cat", "an elephant"
-            r"^(?:i want|i need|i'd like)\s+(?:to see\s+)?(?:a|an|the)\s+",  # "i want to see a..."
-            r"^(?:how about|what about|give me)\s+(?:a|an|the)\s+",  # "give me a..."
+        # FIRST: Exclude coding/development tasks (these should go to CodingAgent)
+        coding_indicators = [
+            "file", "component", "react", "function", "class", "api",
+            "endpoint", "route", "module", "import", "export", "frontend",
+            "backend", "code", "script", "program", "create a file",
+            "create file", "new file", "update file", "edit file",
+            "create component", "create react", "create api",
+            "create endpoint", "create function", "create class",
+            "then", "next", "after that",  # Multi-step tasks
+            ".jsx", ".tsx", ".js", ".ts", ".py",  # File extensions
         ]
         
-        import re
-        for pattern in descriptive_patterns:
-            if re.search(pattern, lower):
-                # Additional check: should contain visual/descriptive words
-                visual_words = ["cat", "dog", "sunset", "mountain", "ocean", "forest", 
-                               "city", "building", "person", "animal", "flower", "tree",
-                               "car", "house", "food", "drink", "landscape", "portrait",
-                               "abstract", "colorful", "beautiful", "scenic", "nature"]
-                if any(word in lower for word in visual_words) or len(lower.split()) >= 3:
-                    return True
+        # If ANY coding indicator is present, NOT an image request
+        if any(indicator in lower for indicator in coding_indicators):
+            return False
+
+        # Image generation triggers (MUST be explicit about images)
+        image_triggers = [
+            # Explicit image requests
+            "generate image", "generate picture", "generate photo", "generate art",
+            "create image", "create picture", "create photo", "create art",
+            "draw me", "draw a picture", "draw an image",
+            "make an image", "make a picture", "make art",
+            "show me a picture", "show me an image", "show me a photo",
+            "image of", "picture of", "photo of",
+            "generate an image", "generate a picture",
+            # Visual content requests
+            "illustration", "illustrate", "visualize", "visualization",
+            "logo", "icon", "banner", "poster",
+        ]
+
+        # Check for explicit image triggers
+        if any(trigger in lower for trigger in image_triggers):
+            return True
+
+        # Check for descriptive image requests (MUST have visual keywords)
+        visual_keywords = [
+            "cat", "dog", "sunset", "mountain", "ocean", "forest",
+            "city", "building", "person", "animal", "flower", "tree",
+            "car", "house", "food", "drink", "landscape", "portrait",
+            "abstract", "colorful", "beautiful", "scenic", "nature",
+            "space", "planet", "galaxy", "star", "moon", "sun",
+        ]
+        
+        # Only match if it's clearly about visual content
+        if any(word in lower for word in visual_keywords):
+            # Must also have a creation verb
+            creation_verbs = ["generate", "create", "draw", "make", "show", "image", "picture"]
+            if any(verb in lower for verb in creation_verbs):
+                return True
 
         return False
 
@@ -533,14 +588,15 @@ class MultiAgentOrchestrator:
         aggregate.used_agents.extend(images.used_agents)
         aggregate.image_logs.extend(images.image_logs)
 
-        # Check for coding/development tasks (HIGH PRIORITY)
+        # ⚡ CRITICAL: Check for coding/development tasks FIRST (HIGHEST PRIORITY)
+        # This prevents coding requests from being misinterpreted as image requests
         coding = await self.coding_agent.run(session_id, user_message)
         if coding.direct_reply is not None:
-            return coding
+            return coding  # Return immediately if coding agent handled it
         aggregate.tool_context.extend(coding.tool_context)
         aggregate.used_agents.extend(coding.used_agents)
 
-        # Check for image generation requests (after capability development)
+        # Only check for image generation if NOT a coding task
         gen_image = await self.image_generation_agent.run(session_id, user_message)
         if gen_image.direct_reply is not None:
             return gen_image

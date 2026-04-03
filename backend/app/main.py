@@ -53,3 +53,13 @@ if video_routes.exists():
         print("✅ Video generation endpoints loaded")
     except Exception as e:
         print(f"⚠️  Could not load video routes: {e}")
+
+# Include self-learning and planning routes
+learning_routes = api_dir / "learning_routes.py"
+if learning_routes.exists():
+    try:
+        from backend.app.api.learning_routes import router as learning_router
+        app.include_router(learning_router)
+        print("✅ Self-learning and planning endpoints loaded")
+    except Exception as e:
+        print(f"⚠️  Could not load learning routes: {e}")

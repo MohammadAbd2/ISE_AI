@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import asyncio
+import json
 from typing import AsyncIterator
 
 from backend.app.models.message import Message
@@ -31,6 +32,7 @@ from backend.app.services.autonomous_developer import (
     AutonomousDeveloper,
     get_autonomous_developer,
 )
+from backend.app.services.self_learning import get_learning_system
 
 
 @dataclass(slots=True)
@@ -66,13 +68,15 @@ class ChatAgent:
         self.session_manager = get_evolution_session_manager()
         # Autonomous developer for self-improvement
         self.developer = get_autonomous_developer()
+        # Self-learning system
+        self.learning_system = get_learning_system()
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
-        
+
         # Determine if we should use agent mode
         use_agent_mode = self._should_use_agent_mode(payload.message, payload.mode)
-        
+
         if use_agent_mode:
             # Use autonomous agent for coding tasks
             decision = await self._decide(
@@ -86,42 +90,56 @@ class ChatAgent:
                 memory_note="",
                 tool_context=None,
             )
-        
+
         if decision.reply is not None:
-            return ChatResponse(
+            response = ChatResponse(
                 reply=decision.reply,
                 model=payload.model or "agent",
                 search_logs=decision.search_logs or [],
                 image_logs=decision.image_logs or [],
             )
+            # Learn from this interaction
+            await self._learn_from_interaction(payload, response)
+            return response
+            
         # Normalize schema objects into the provider-facing message model.
         conversation = [
             Message(role=message.role, content=message.content)
             for message in payload.conversation
         ]
+        
+        # Get personalized context from learning system
+        personalized_context = await self._get_personalized_context(payload.message)
+        
         reply, model = await self.service.generate_reply(
             user_message=payload.message,
             conversation=conversation,
             custom_instructions=profile.get("custom_instructions", ""),
             memory_items=profile.get("memory", []),
             memory_note=decision.memory_note,
-            tool_context=decision.tool_context,
+            tool_context=decision.tool_context + personalized_context if decision.tool_context else personalized_context,
             model=payload.model,
             effort=payload.effort,
         )
-        return ChatResponse(
+        
+        response = ChatResponse(
             reply=reply,
             model=model,
             search_logs=decision.search_logs or [],
             image_logs=decision.image_logs or [],
         )
+        
+        # Learn from this interaction
+        await self._learn_from_interaction(payload, response)
+        
+        return response
 
     async def stream_response(
         self,
         payload: ChatRequest,
         conversation: list[ChatMessage] | list[Message] | None = None,
         session_id: str | None = None,
-    ) -> tuple[AsyncIterator[str], str, list[WebSearchLog]]:
+    ) -> tuple[AsyncIterator[str], str, list[WebSearchLog], list[ImageIntelLog]]:
         profile = await self.profile_service.get_profile()
         
         # Determine if we should use agent mode
@@ -415,11 +433,11 @@ class ChatAgent:
     def _should_use_agent_mode(self, message: str, mode: str) -> bool:
         """
         Determine if agent mode should be used based on message content and user preference.
-        
+
         Args:
             message: User's message
             mode: Selected mode ("auto", "chat", or "agent")
-        
+
         Returns:
             True if agent mode should be used, False for chat mode
         """
@@ -428,77 +446,127 @@ class ChatAgent:
             return True
         if mode == "chat":
             return False
-        
+
         # Auto mode: intelligently detect intent
         message_lower = message.lower().strip()
-        
+
         # === CHAT MODE TRIGGERS (questions, explanations, rewrites in chat) ===
         chat_triggers = [
             # Questions
             "what is", "explain", "tell me", "how do", "how to", "how does",
             "why is", "who is", "when did", "where is", "define", "describe",
             "what's", "how's", "why's", "can you explain", "could you explain",
-            
+
             # Rewrite/Show in chat (NOT file operations)
             "rewrite this", "show me", "give me", "write me", "can you write",
             "could you write", "i want to see", "i'd like to see",
             "in the chat", "in chat", "here in chat", "just show",
             "don't create", "don't write to file", "not in file",
-            
+
             # Code review/analysis (not modification)
             "review this", "analyze this", "what does", "is this",
             "check this", "look at this", "read this",
-            
+
             # General queries
             "history of", "benefits of", "difference between", "vs", "versus",
             "compare", "which is better", "recommend", "suggest",
         ]
-        
+
         # Check for chat triggers FIRST
         is_chat = any(trigger in message_lower for trigger in chat_triggers)
         if is_chat:
             return False  # Use chat mode
-        
+
         # === AGENT MODE TRIGGERS (file operations, modifications) ===
         agent_triggers = [
             # Creation tasks (to files)
             "create a file", "create file", "add a file", "write a file",
             "create in", "write to", "save to", "put in",
-            
+
             # Modification tasks
             "change the", "update the", "modify the", "fix the", "debug",
             "refactor", "optimize", "improve the", "enhance the",
-            
+
             # File operations
             "edit file", "update file", "delete file", "remove file",
             "add to file", "remove from file",
-            
+
             # Code-specific (when NOT asking questions)
             "add endpoint", "add route", "add function to", "add class to",
             "create endpoint", "create route", "implement",
-            
+
             # Installation
             "install", "npm install", "pip install", "add package",
-            
+
             # Testing
             "run tests", "test this", "write tests for",
         ]
-        
+
         # Check for agent triggers
         has_agent_trigger = any(trigger in message_lower for trigger in agent_triggers)
-        
+
         # Code patterns that suggest file operations
         import re
         file_patterns = [
             r"(?:create|write|save|put)\s+(?:a|an)?\s*(?:file)?\s*(?:in|at|to)?\s*(?:folder|directory|path)?\s*['\"]?[\w/\.]+['\"]?",
             r"(?:frontend|backend|src|app|utils|components|api)/[\w/\.]+",
         ]
-        
+
         has_file_pattern = any(re.search(pattern, message) for pattern in file_patterns)
-        
+
         # Decision logic
         if has_agent_trigger or has_file_pattern:
             return True  # Coding task detected → Agent mode
-        
+
         # Default to chat for general queries
         return False
+
+    async def _learn_from_interaction(self, payload: ChatRequest, response: ChatResponse):
+        """Learn from a user interaction to improve future responses."""
+        try:
+            # Initialize learning system
+            await self.learning_system.initialize()
+            
+            # Learn from the interaction
+            await self.learning_system.learn_from_interaction(
+                user_message=payload.message,
+                assistant_response=response.reply,
+                context="\n".join(payload.attachments) if payload.attachments else "",
+                session_id=payload.session_id,
+            )
+        except Exception as e:
+            # Don't let learning failures break the chat
+            print(f"Learning system error: {e}")
+
+    async def _get_personalized_context(self, task: str) -> list[str]:
+        """Get personalized context based on learned preferences."""
+        try:
+            # Initialize learning system
+            await self.learning_system.initialize()
+            
+            # Get personalized context
+            context = await self.learning_system.get_personalized_context(task)
+            
+            # Format as context for the LLM
+            context_parts = []
+            
+            if context.get("user_preferences"):
+                context_parts.append(
+                    f"User preferences: {json.dumps(context['user_preferences'])}"
+                )
+            
+            if context.get("code_styles"):
+                context_parts.append(
+                    f"Preferred code styles: {json.dumps(context['code_styles'])}"
+                )
+            
+            if context.get("recommendations"):
+                context_parts.append(
+                    f"Recommendations: {', '.join(context['recommendations'])}"
+                )
+            
+            return context_parts
+        except Exception as e:
+            # Don't let context failures break the chat
+            print(f"Context generation error: {e}")
+            return []
