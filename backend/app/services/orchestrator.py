@@ -11,6 +11,9 @@ from backend.app.services.search import SearchService, get_search_service
 from backend.app.services.tools import AgentToolbox
 from backend.app.services.url_content import UrlContentService, get_url_content_service
 from backend.app.services.video_intel import VideoGenService, get_video_gen_service
+from backend.app.services.intent_classifier import get_intent_classifier
+from backend.app.services.artifacts import get_artifact_service
+from backend.app.services.dynamic_tool_registry import get_dynamic_tool_registry
 
 # Try to import image generation service (may not exist yet)
 try:
@@ -28,6 +31,7 @@ class OrchestratorResult:
     used_agents: list[str] = field(default_factory=list)
     search_logs: list[WebSearchLog] = field(default_factory=list)
     image_logs: list[ImageIntelLog] = field(default_factory=list)
+    render_blocks: list[dict] = field(default_factory=list)
 
 
 class UtilityAgent:
@@ -93,6 +97,7 @@ class ResearchAgent:
             tool_context=context,
             used_agents=[self.name],
             search_logs=[log],
+            render_blocks=self.search_service.build_render_blocks(log),
         )
 
 
@@ -170,6 +175,115 @@ class ExecutionAgent:
         return OrchestratorResult(tool_context=[result], used_agents=[self.name])
 
 
+class CapabilityAgent:
+    name = "capability-agent"
+
+    def __init__(self) -> None:
+        self.registry = get_dynamic_tool_registry()
+        self.artifacts = get_artifact_service()
+
+    async def run(self, session_id: str | None, user_message: str) -> OrchestratorResult:
+        if session_id is None:
+            return OrchestratorResult()
+
+        lower = user_message.lower()
+
+        if self._wants_session_analytics(lower):
+            payload = await self.registry.execute_tool_async(
+                "session_analytics",
+                session_id=session_id,
+            )
+            blocks = list(payload.get("render_blocks", []))
+            if payload.get("visualization"):
+                blocks.insert(0, {"type": "visualization", "payload": payload["visualization"]})
+            blocks.append(
+                {
+                    "type": "report",
+                    "payload": {
+                        "title": "Session analytics",
+                        "summary": "Loaded the latest visualization, render blocks, and artifacts for this session.",
+                        "highlights": [
+                            f"Artifacts: {len(payload.get('artifacts', []))}",
+                            f"Context available: {'yes' if payload.get('has_context') else 'no'}",
+                        ],
+                    },
+                }
+            )
+            return OrchestratorResult(
+                direct_reply="Loaded the latest session analytics context.",
+                used_agents=[self.name],
+                render_blocks=blocks,
+            )
+
+        if self._wants_research_memory(lower):
+            artifact = await self._latest_research_artifact(session_id)
+            if artifact is None:
+                return OrchestratorResult(
+                    direct_reply="No saved research memory is available for this session yet.",
+                    used_agents=[self.name],
+                )
+            result = await self.registry.execute_tool_async(
+                "reopen_artifact",
+                artifact_id=artifact["id"],
+                session_id=session_id,
+            )
+            return OrchestratorResult(
+                direct_reply=f"Reopened research memory: {artifact['title']}",
+                used_agents=[self.name],
+                render_blocks=result.get("render_blocks", []),
+            )
+
+        if self._wants_session_history(lower):
+            payload = await self.registry.execute_tool_async(
+                "session_history",
+                session_id=session_id,
+            )
+            if payload.get("status") != "success":
+                return OrchestratorResult()
+            return OrchestratorResult(
+                direct_reply=(
+                    f"Session history: {payload['message_count']} messages in \"{payload['title']}\".\n\n"
+                    + "\n".join(f"- {item['role']}: {item['content']}" for item in payload["messages"])
+                ),
+                used_agents=[self.name],
+            )
+
+        return OrchestratorResult()
+
+    async def _latest_research_artifact(self, session_id: str) -> dict | None:
+        rows = await self.artifacts.list_artifacts(session_id=session_id, kinds=["research"], limit=1)
+        return rows[0] if rows else None
+
+    def _wants_session_analytics(self, lower: str) -> bool:
+        phrases = [
+            "session analytics",
+            "show analytics",
+            "open analytics",
+            "show session context",
+            "show latest visualization",
+        ]
+        return any(phrase in lower for phrase in phrases)
+
+    def _wants_research_memory(self, lower: str) -> bool:
+        phrases = [
+            "research memory",
+            "open research memory",
+            "show research memory",
+            "latest research",
+            "saved research",
+        ]
+        return any(phrase in lower for phrase in phrases)
+
+    def _wants_session_history(self, lower: str) -> bool:
+        phrases = [
+            "session history",
+            "chat history",
+            "recent messages",
+            "show conversation history",
+        ]
+        return any(phrase in lower for phrase in phrases)
+
+
 class CodingAgent:
     """
     Intelligent coding agent with context understanding.
@@ -187,9 +301,14 @@ class CodingAgent:
         from backend.app.services.planning_agent import get_planning_agent
         self.coding_agent = get_intelligent_coding_agent()
         self.planning_agent = get_planning_agent()
+        self.intent_classifier = get_intent_classifier()
+        self.artifacts = get_artifact_service()
 
     def should_code(self, user_message: str) -> bool:
         """Check if user is requesting a coding/development task."""
+        if not self.intent_classifier.classify(user_message, "auto").use_agent:
+            return False
+
         lower = user_message.lower()
 
         # Console/browser tasks
@@ -270,7 +389,11 @@ class CodingAgent:
             if has_multiple_steps:
                 # Use planning agent for multi-step tasks
                 print(f"🔧 [CodingAgent] Multi-step task detected, using planning agent...")
-                plan = await self.planning_agent.execute_task_with_plan(user_message)
+                project_context = await self._load_project_context(session_id)
+                plan = await self.planning_agent.execute_task_with_plan(
+                    user_message,
+                    project_context=project_context,
+                )
 
                 # Format the plan as a detailed log
                 log_output = plan.to_log_string()
@@ -280,17 +403,59 @@ class CodingAgent:
                     return OrchestratorResult(
                         direct_reply=f"✅ **Task Complete**\n\n{log_output}",
                         used_agents=[self.name],
+                        render_blocks=self._build_render_blocks(
+                            plan.task,
+                            [
+                                {
+                                    "path": step.target,
+                                    "summary": step.output[:180] if step.output else step.description,
+                                }
+                                for step in plan.steps
+                                if step.action_type in {"create_file", "edit_file", "write_file"} or "/" in step.target or "." in step.target
+                            ],
+                            plan.status.value,
+                            plan_steps=[
+                                {
+                                    "step_number": step.step_number,
+                                    "description": step.description,
+                                    "status": step.status.value,
+                                    "target": step.target,
+                                    "output": step.output[:240] if step.output else "",
+                                    "error": step.error,
+                                }
+                                for step in plan.steps
+                            ],
+                        ),
                     )
                 else:
                     return OrchestratorResult(
                         direct_reply=f"⚠️ **Task Status**\n\n{log_output}",
                         used_agents=[self.name],
+                        render_blocks=self._build_render_blocks(
+                            plan.task,
+                            [],
+                            plan.status.value,
+                            plan_steps=[
+                                {
+                                    "step_number": step.step_number,
+                                    "description": step.description,
+                                    "status": step.status.value,
+                                    "target": step.target,
+                                    "output": step.output[:240] if step.output else "",
+                                    "error": step.error,
+                                }
+                                for step in plan.steps
+                            ],
+                        ),
                     )
             else:
                 # Use intelligent coding agent for single-step tasks
                 print(f"🔧 [CodingAgent] Single-step task, using intelligent coding agent...")
                 await self.coding_agent.initialize()
-                progress = await self.coding_agent.execute_task(user_message)
+                progress = await self.coding_agent.execute_task(
+                    user_message,
+                    project_context=await self._load_project_context(session_id),
+                )
 
                 # Format the progress as a detailed log
                 log_output = progress.to_log_string()
@@ -300,11 +465,37 @@ class CodingAgent:
                     return OrchestratorResult(
                         direct_reply=f"✅ **Development Task Complete**\n\n{log_output}",
                         used_agents=[self.name],
+                        render_blocks=self._build_render_blocks(
+                            progress.task_description,
+                            [
+                                {
+                                    "path": action.target,
+                                    "summary": action.description,
+                                    "diff": action.diff,
+                                }
+                                for action in progress.actions
+                                if action.action_type in {"write", "edit", "repair"} and action.target
+                            ],
+                            progress.overall_status,
+                        ),
                     )
                 else:
                     return OrchestratorResult(
                         direct_reply=f"⚠️ **Task Status**\n\n{log_output}",
                         used_agents=[self.name],
+                        render_blocks=self._build_render_blocks(
+                            progress.task_description,
+                            [
+                                {
+                                    "path": action.target,
+                                    "summary": action.description,
+                                    "diff": action.diff,
+                                }
+                                for action in progress.actions
+                                if action.action_type in {"write", "edit", "repair"} and action.target
+                            ],
+                            progress.overall_status,
+                        ),
                     )
 
         except Exception as e:
@@ -315,6 +506,55 @@ class CodingAgent:
                 direct_reply=error_msg,
                 used_agents=[self.name],
             )
+
+    async def _load_project_context(self, session_id: str | None) -> dict:
+        if not session_id:
+            return {}
+        artifacts = await self.artifacts.list_artifacts(session_id=session_id, kinds=["archive"], limit=1)
+        if not artifacts:
+            return {}
+        return artifacts[0].get("metadata", {})
+
+    def _build_render_blocks(
+        self,
+        task: str,
+        files: list[dict],
+        status: str,
+        plan_steps: list[dict] | None = None,
+    ) -> list[dict]:
+        highlights = [f["path"] for f in files[:6] if f.get("path")]
+        blocks = [
+            {
+                "type": "report",
+                "payload": {
+                    "title": "Coding task summary",
+                    "summary": f"Task status: {status}.",
+                    "highlights": [task, *highlights] if highlights else [task],
+                },
+            }
+        ]
+        if plan_steps:
+            blocks.append(
+                {
+                    "type": "plan_result",
+                    "payload": {
+                        "title": "Execution plan",
+                        "status": status,
+                        "steps": plan_steps[:12],
+                    },
+                }
+            )
+        if files:
+            blocks.append(
+                {
+                    "type": "file_result",
+                    "payload": {
+                        "title": "Files touched by coding agent",
+                        "files": files[:8],
+                    },
+                }
+            )
+        return blocks
 
     def _has_multiple_steps(self, task: str) -> bool:
         """Check if a task has multiple steps that require planning."""
@@ -559,6 +799,7 @@ class MultiAgentOrchestrator:
         self.video_generation_agent = VideoGenerationAgent(video_service)
         self.research_agent = ResearchAgent(search_service)
         self.execution_agent = ExecutionAgent(sandbox_service)
+        self.capability_agent = CapabilityAgent()
         self.coding_agent = CodingAgent()
 
     async def run(
@@ -587,6 +828,14 @@ class MultiAgentOrchestrator:
         aggregate.tool_context.extend(images.tool_context)
         aggregate.used_agents.extend(images.used_agents)
         aggregate.image_logs.extend(images.image_logs)
+        aggregate.render_blocks.extend(images.render_blocks)
+
+        capability = await self.capability_agent.run(session_id, user_message)
+        if capability.direct_reply is not None:
+            return capability
+        aggregate.tool_context.extend(capability.tool_context)
+        aggregate.used_agents.extend(capability.used_agents)
+        aggregate.render_blocks.extend(capability.render_blocks)
 
         # ⚡ CRITICAL: Check for coding/development tasks FIRST (HIGHEST PRIORITY)
         # This prevents coding requests from being misinterpreted as image requests
@@ -612,10 +861,12 @@ class MultiAgentOrchestrator:
         aggregate.tool_context.extend(research.tool_context)
         aggregate.used_agents.extend(research.used_agents)
         aggregate.search_logs.extend(research.search_logs)
+        aggregate.render_blocks.extend(research.render_blocks)
 
         execution = await self.execution_agent.run(session_id, user_message)
         aggregate.tool_context.extend(execution.tool_context)
         aggregate.used_agents.extend(execution.used_agents)
+        aggregate.render_blocks.extend(execution.render_blocks)
 
         aggregate.used_agents = list(dict.fromkeys(aggregate.used_agents))
         return aggregate

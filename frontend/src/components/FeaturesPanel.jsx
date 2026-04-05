@@ -2,39 +2,136 @@ import { useEffect, useState } from "react";
 import { api, fetchJson as getJson } from "../lib/api";
 
 export default function FeaturesPanel({ currentSessionId, onArtifactRefresh }) {
-  const [activeTab, setActiveTab] = useState("search");
+  const [activeTab, setActiveTab] = useState("quick-actions");
   const [busy, setBusy] = useState(false);
-  const [terminalCommand, setTerminalCommand] = useState("");
-  const [terminalOutput, setTerminalOutput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [gitStatus, setGitStatus] = useState(null);
-  const [reviewPath, setReviewPath] = useState("");
-  const [reviewContent, setReviewContent] = useState("");
-  const [reviewResult, setReviewResult] = useState("");
-  const [filePath, setFilePath] = useState("");
-  const [fileContent, setFileContent] = useState("");
-  const [learningStats, setLearningStats] = useState(null);
   const [panelError, setPanelError] = useState("");
+  
+  // Quick Actions State
+  const [quickAction, setQuickAction] = useState("");
+  const [quickActionResult, setQuickActionResult] = useState("");
+  
+  // Code Snippets State
+  const [snippets, setSnippets] = useState([]);
+  const [newSnippet, setNewSnippet] = useState({ name: "", code: "", language: "python" });
+  
+  // Project Templates State
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [templateResult, setTemplateResult] = useState("");
 
-  async function runTerminal() {
-    if (!terminalCommand.trim()) {
+  const quickActions = [
+    { id: "explain-code", label: "📖 Explain Code", prompt: "Explain the code in my current file and suggest improvements" },
+    { id: "generate-tests", label: "🧪 Generate Tests", prompt: "Generate comprehensive unit tests for the current file" },
+    { id: "refactor-code", label: "♻️ Refactor Code", prompt: "Refactor the code to improve readability and performance" },
+    { id: "add-comments", label: "💬 Add Comments", prompt: "Add comprehensive comments and documentation to the code" },
+    { id: "optimize-code", label: "⚡ Optimize Code", prompt: "Optimize the code for better performance" },
+    { id: "find-bugs", label: "🐛 Find Bugs", prompt: "Analyze the code for potential bugs and issues" },
+    { id: "security-audit", label: "🔒 Security Audit", prompt: "Perform a security audit on the code" },
+    { id: "create-readme", label: "📝 Create README", prompt: "Generate a comprehensive README.md for this project" },
+  ];
+
+  const codeSnippets = [
+    { name: "Python FastAPI Template", language: "python", code: `from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):
+    return {"item_id": item_id}` },
+    { name: "React Component", language: "javascript", code: `import React, { useState } from 'react';
+
+const MyComponent = ({ title }) => {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <div>
+      <h1>{title}</h1>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>
+        Increment
+      </button>
+    </div>
+  );
+};
+
+export default MyComponent;` },
+    { name: "Python Class Template", language: "python", code: `from typing import Optional
+
+class MyClass:
+    """A sample class with type hints and docstrings."""
+    
+    def __init__(self, name: str, value: Optional[int] = None):
+        self.name = name
+        self.value = value
+    
+    def get_info(self) -> dict:
+        """Return information about this instance."""
+        return {
+            "name": self.name,
+            "value": self.value
+        }
+    
+    def __str__(self) -> str:
+        return f"{self.name}: {self.value}"` },
+  ];
+
+  const projectTemplates = [
+    { id: "fastapi-api", name: "🚀 FastAPI REST API", description: "Complete REST API with authentication" },
+    { id: "react-app", name: "⚛️ React App", description: "React app with routing and state management" },
+    { id: "python-cli", name: "🖥️ Python CLI Tool", description: "Command-line tool with argparse" },
+    { id: "data-analysis", name: "📊 Data Analysis", description: "Python data analysis with pandas/matplotlib" },
+  ];
+
+  async function handleQuickAction(prompt) {
+    if (!prompt.trim()) {
       return;
     }
     setBusy(true);
     setPanelError("");
+    setQuickActionResult("");
     try {
-      const data = await getJson(api.terminal, {
+      const response = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: terminalCommand, timeout: 120 }),
+        body: JSON.stringify({
+          message: prompt,
+          session_id: currentSessionId,
+        }),
       });
-      setTerminalOutput((current) =>
-        [current, `$ ${terminalCommand}`, data.stdout, data.stderr, data.suggested_fix || ""]
-          .filter(Boolean)
-          .join("\n"),
-      );
-      setTerminalCommand("");
+      
+      if (!response.ok) {
+        throw new Error("Request failed");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullResponse = "";
+
+      while (true) {
+        const { value: chunk, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === "token") {
+              fullResponse += data.content;
+              setQuickActionResult(fullResponse);
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
     } catch (error) {
       setPanelError(error.message);
     } finally {
@@ -42,88 +139,62 @@ export default function FeaturesPanel({ currentSessionId, onArtifactRefresh }) {
     }
   }
 
-  async function runSearch() {
-    if (!searchQuery.trim()) {
-      return;
-    }
+  function handleSnippetSelect(snippet) {
+    setNewSnippet({ ...snippet });
+  }
+
+  async function handleTemplateGenerate(templateId) {
     setBusy(true);
     setPanelError("");
+    setTemplateResult("");
+    
+    const prompts = {
+      "fastapi-api": "Create a complete FastAPI REST API with user authentication, database integration, and error handling",
+      "react-app": "Create a React application with routing, state management, and a clean UI",
+      "python-cli": "Create a Python CLI tool with argument parsing, logging, and error handling",
+      "data-analysis": "Create a Python data analysis script with pandas, matplotlib, and statistical analysis",
+    };
+    
     try {
-      const data = await getJson(api.ragSearch, {
+      const response = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, limit: 8 }),
+        body: JSON.stringify({
+          message: prompts[templateId] || "Generate a project template",
+          session_id: currentSessionId,
+        }),
       });
-      setSearchResults(data.results || []);
-    } catch (error) {
-      setPanelError(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+      
+      if (!response.ok) {
+        throw new Error("Request failed");
+      }
 
-  async function loadGitStatus() {
-    setBusy(true);
-    setPanelError("");
-    try {
-      const data = await getJson(api.gitStatus);
-      setGitStatus(data);
-    } catch (error) {
-      setPanelError(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullResponse = "";
 
-  async function runReview() {
-    if (!reviewPath.trim() || !reviewContent.trim()) {
-      return;
-    }
-    setBusy(true);
-    setPanelError("");
-    try {
-      const data = await getJson(api.codeReview, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_path: reviewPath, content: reviewContent }),
-      });
-      setReviewResult(data.review || "");
-    } catch (error) {
-      setPanelError(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveFile() {
-    if (!filePath.trim()) {
-      return;
-    }
-    setBusy(true);
-    setPanelError("");
-    try {
-      await getJson(api.fileOperation, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operation: "write", path: filePath, content: fileContent }),
-      });
-      onArtifactRefresh?.();
-    } catch (error) {
-      setPanelError(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function loadLearning() {
-    setBusy(true);
-    setPanelError("");
-    try {
-      const [stats, planning] = await Promise.all([
-        getJson(api.learningStats),
-        getJson(api.planningDemo),
-      ]);
-      setLearningStats({ stats, planning });
+      while (true) {
+        const { value: chunk, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === "token") {
+              fullResponse += data.content;
+              setTemplateResult(fullResponse);
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
     } catch (error) {
       setPanelError(error.message);
     } finally {
@@ -132,108 +203,124 @@ export default function FeaturesPanel({ currentSessionId, onArtifactRefresh }) {
   }
 
   useEffect(() => {
-    if (activeTab === "git" && !gitStatus) {
-      loadGitStatus();
-    }
-    if (activeTab === "learning" && !learningStats) {
-      loadLearning();
-    }
-  }, [activeTab]);
+    setSnippets(codeSnippets);
+  }, []);
 
   return (
     <section className="panel feature-panel">
       <div className="panel-header">
         <div>
           <p className="eyebrow">Enhanced Features</p>
-          <h2>Workspace tools</h2>
+          <h2>Workspace Tools</h2>
         </div>
         <span className="panel-chip">{currentSessionId ? "Session-aware" : "Draft mode"}</span>
       </div>
       <div className="feature-tabs">
-        {["search", "terminal", "git", "review", "files", "learning"].map((tab) => (
+        {["quick-actions", "snippets", "templates"].map((tab) => (
           <button
             key={tab}
             type="button"
             className={`feature-tab ${activeTab === tab ? "active" : ""}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab}
+            {tab === "quick-actions" ? "⚡ Quick Actions" : tab === "snippets" ? "📝 Snippets" : "📦 Templates"}
           </button>
         ))}
       </div>
       {panelError ? <div className="panel-error">{panelError}</div> : null}
       <div className="feature-body">
-        {activeTab === "search" ? (
+        {activeTab === "quick-actions" ? (
           <div className="tool-form">
             <label>
-              Semantic code search
-              <div className="inline-form">
-                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Find route handlers, hooks, models..." />
-                <button type="button" onClick={runSearch} disabled={busy}>Run</button>
+              Quick AI Actions
+              <div className="quick-actions-grid">
+                {quickActions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    className="quick-action-button"
+                    onClick={() => handleQuickAction(action.prompt)}
+                    disabled={busy}
+                  >
+                    {action.label}
+                  </button>
+                ))}
               </div>
             </label>
-            <div className="result-list">
-              {searchResults.map((result) => (
-                <article key={`${result.file_path}-${result.line_number}`} className="result-card">
-                  <strong>{result.file_path}</strong>
-                  <span>Line {result.line_number || "?"} · score {result.score?.toFixed?.(2) ?? result.score}</span>
-                  <p>{result.content}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {activeTab === "terminal" ? (
-          <div className="tool-form">
-            <label>
-              Run project command
-              <div className="inline-form">
-                <input value={terminalCommand} onChange={(event) => setTerminalCommand(event.target.value)} placeholder="pytest, npm run build, uvicorn backend.app.main:app --reload" />
-                <button type="button" onClick={runTerminal} disabled={busy}>Run</button>
-              </div>
-            </label>
-            <pre className="terminal-screen">{terminalOutput || "$ ready"}</pre>
-          </div>
-        ) : null}
-        {activeTab === "git" ? (
-          <div className="tool-form">
-            <button type="button" onClick={loadGitStatus} disabled={busy}>Refresh git state</button>
-            {gitStatus ? (
-              <div className="stats-grid compact">
-                <div className="stat-card"><span>Branch</span><strong>{gitStatus.branch}</strong></div>
-                <div className="stat-card"><span>Staged</span><strong>{gitStatus.staged_changes.length}</strong></div>
-                <div className="stat-card"><span>Unstaged</span><strong>{gitStatus.unstaged_changes.length}</strong></div>
-                <div className="stat-card"><span>Untracked</span><strong>{gitStatus.untracked_files.length}</strong></div>
+            {quickActionResult ? (
+              <div className="quick-action-result">
+                <h4>Result:</h4>
+                <pre className="action-result-content">{quickActionResult}</pre>
               </div>
             ) : null}
           </div>
         ) : null}
-        {activeTab === "review" ? (
+        
+        {activeTab === "snippets" ? (
           <div className="tool-form">
-            <input value={reviewPath} onChange={(event) => setReviewPath(event.target.value)} placeholder="src/components/App.jsx" />
-            <textarea value={reviewContent} onChange={(event) => setReviewContent(event.target.value)} rows={8} placeholder="Paste code to review..." />
-            <button type="button" onClick={runReview} disabled={busy}>Review code</button>
-            {reviewResult ? <pre className="review-output">{reviewResult}</pre> : null}
+            <label>
+              Code Snippets Library
+              <div className="snippets-list">
+                {snippets.map((snippet, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="snippet-item"
+                    onClick={() => handleSnippetSelect(snippet)}
+                  >
+                    <strong>{snippet.name}</strong>
+                    <small>{snippet.language}</small>
+                  </button>
+                ))}
+              </div>
+            </label>
+            {newSnippet.name && (
+              <div className="snippet-editor">
+                <h4>{newSnippet.name}</h4>
+                <pre className="snippet-code">{newSnippet.code}</pre>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(newSnippet.code);
+                  }}
+                >
+                  📋 Copy to Clipboard
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
-        {activeTab === "files" ? (
+        
+        {activeTab === "templates" ? (
           <div className="tool-form">
-            <input value={filePath} onChange={(event) => setFilePath(event.target.value)} placeholder="relative/path/to/file.txt" />
-            <textarea value={fileContent} onChange={(event) => setFileContent(event.target.value)} rows={8} placeholder="Write content..." />
-            <button type="button" onClick={saveFile} disabled={busy}>Write file</button>
-          </div>
-        ) : null}
-        {activeTab === "learning" && learningStats ? (
-          <div className="tool-form">
-            <div className="stats-grid compact">
-              <div className="stat-card"><span>Interactions</span><strong>{learningStats.stats.total_interactions ?? 0}</strong></div>
-              <div className="stat-card"><span>Preferences</span><strong>{learningStats.stats.preferences_learned ?? 0}</strong></div>
-              <div className="stat-card"><span>Styles</span><strong>{learningStats.stats.code_styles ?? 0}</strong></div>
-            </div>
-            <div className="result-card">
-              <strong>Planning examples</strong>
-              {(learningStats.planning.example_tasks || []).map((item) => <p key={item}>{item}</p>)}
-            </div>
+            <label>
+              Project Templates
+              <div className="templates-list">
+                {projectTemplates.map((template) => (
+                  <div key={template.id} className="template-item">
+                    <div className="template-info">
+                      <strong>{template.name}</strong>
+                      <p>{template.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => handleTemplateGenerate(template.id)}
+                      disabled={busy}
+                    >
+                      Generate
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </label>
+            {templateResult ? (
+              <div className="template-result">
+                <h4>Generated Project:</h4>
+                <pre className="template-result-content">{templateResult}</pre>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

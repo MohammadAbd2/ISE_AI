@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 function classifyTranscript(transcript) {
   const lower = transcript.toLowerCase();
@@ -35,18 +35,18 @@ function classifyTranscript(transcript) {
 function normalizeVoiceError(errorCode) {
   switch (errorCode) {
     case "network":
-      return "Voice capture is unavailable in this browser session.";
+      return "Network error: Speech recognition requires an active internet connection. Please check your connection and try again. (Chrome/Edge use Google's speech servers)";
     case "not-allowed":
     case "service-not-allowed":
-      return "Microphone permission is blocked in this browser.";
+      return "Microphone permission blocked. Click the 🔒 icon in your browser's address bar and allow microphone access.";
     case "no-speech":
-      return "No speech was detected.";
+      return "No speech detected. Please speak clearly and closer to your microphone.";
     case "audio-capture":
-      return "No microphone was found.";
+      return "No microphone found. Please connect a microphone and refresh the page.";
     case "aborted":
       return "";
     default:
-      return "Voice recognition failed. Try again or use text input.";
+      return `Voice error (${errorCode}). Please try again or use text input.`;
   }
 }
 
@@ -54,44 +54,109 @@ export function useVoiceCommand(onCommand) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
-  const [supported, setSupported] = useState(true);
+  const [supported, setSupported] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(null);
   const recognitionRef = useRef(null);
+  const retryCountRef = useRef(0);
 
-  useEffect(() => {
+  // Check browser support
+  const checkSupport = useCallback(() => {
     if (typeof window === "undefined") {
-      setSupported(false);
+      return false;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      return false;
+    }
+
+    // Check if we're on localhost or HTTPS
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' ||
+                       window.location.protocol === 'file:';
+    const isHTTPS = window.location.protocol === 'https:';
+
+    return isLocalhost || isHTTPS;
+  }, []);
+
+  // Request microphone permission
+  const requestMicPermission = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError("Your browser doesn't support microphone access.");
+        return false;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Stop the stream immediately - we just needed permission
+      stream.getTracks().forEach(track => track.stop());
+      
+      setPermissionGranted(true);
+      return true;
+    } catch (err) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError("Microphone permission denied. Please click the 🔒 icon in your browser's address bar and allow microphone access.");
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError("No microphone found. Please connect a microphone and try again.");
+      } else {
+        setError(`Microphone error: ${err.message}`);
+      }
+      setPermissionGranted(false);
+      return false;
+    }
+  }, []);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    const isSupported = checkSupport();
+    setSupported(isSupported);
+
+    if (!isSupported) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        setError("Voice input requires Chrome, Edge, or Safari. Your browser doesn't support speech recognition.");
+      } else {
+        setError("Voice input requires HTTPS or localhost. Please use a secure connection.");
+      }
       return undefined;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSupported(false);
-      setError("Voice input is supported in Chrome and Edge.");
-      return undefined;
-    }
-
     const recognition = new SpeechRecognition();
+    
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = "en-US";
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       setIsListening(true);
       setTranscript("");
       setError("");
+      retryCountRef.current = 0;
     };
 
     recognition.onresult = (event) => {
       const result = event.results[event.resultIndex];
       const nextTranscript = result[0].transcript.trim();
       setTranscript(nextTranscript);
+      
       if (result.isFinal && nextTranscript) {
         const payload = classifyTranscript(nextTranscript);
         onCommand?.(payload);
+        setIsListening(false);
       }
     };
 
     recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      
+      if (event.error === "not-allowed") {
+        requestMicPermission();
+      }
+      
       const nextError = normalizeVoiceError(event.error);
       setError(nextError);
       setIsListening(false);
@@ -102,27 +167,151 @@ export function useVoiceCommand(onCommand) {
     };
 
     recognitionRef.current = recognition;
+
     return () => {
-      recognition.stop();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore stop errors
+        }
+      }
       recognitionRef.current = null;
     };
-  }, [onCommand]);
+  }, [onCommand, checkSupport, requestMicPermission]);
 
-  function startListening() {
+  async function startListening() {
     if (!recognitionRef.current || !supported || isListening) {
       return;
     }
+
     setError("");
     setTranscript("");
+
+    // Request permission first
+    const hasPermission = await requestMicPermission();
+    if (!hasPermission) {
+      return;
+    }
+
     try {
+      retryCountRef.current = 0;
       recognitionRef.current.start();
-    } catch {
-      setError("Microphone is already active.");
+    } catch (err) {
+      console.error("Failed to start recognition:", err);
+      handleStartError(err);
     }
   }
 
+  function handleStartError(err) {
+    if (err.message?.includes("already started")) {
+      // Reset the recognition object and retry
+      try {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = "en-US";
+        recognitionRef.current.maxAlternatives = 1;
+        
+        // Re-attach event handlers
+        attachRecognitionHandlers();
+        
+        recognitionRef.current.start();
+      } catch (retryErr) {
+        setError("Failed to start voice recognition. Please refresh the page and try again.");
+      }
+    } else {
+      setError(`Failed to start voice: ${err.message}`);
+    }
+  }
+
+  function attachRecognitionHandlers() {
+    if (!recognitionRef.current) return;
+    
+    recognitionRef.current.onstart = () => {
+      setIsListening(true);
+      setTranscript("");
+      setError("");
+      retryCountRef.current = 0;
+    };
+
+    recognitionRef.current.onresult = (event) => {
+      const result = event.results[event.resultIndex];
+      const nextTranscript = result[0].transcript.trim();
+      setTranscript(nextTranscript);
+      
+      if (result.isFinal && nextTranscript) {
+        const payload = classifyTranscript(nextTranscript);
+        onCommand?.(payload);
+        setIsListening(false);
+      }
+    };
+
+    recognitionRef.current.onerror = (event) => {
+      console.error("Speech recognition error:", event.error, event);
+      
+      // Handle network errors with retry
+      if (event.error === "network") {
+        retryCountRef.current += 1;
+        
+        if (retryCountRef.current <= 2) {
+          setError(`Network error - retrying (${retryCountRef.current}/2)...`);
+          // Auto-retry after 1 second
+          setTimeout(() => {
+            try {
+              recognitionRef.current.stop();
+              setTimeout(() => {
+                try {
+                  recognitionRef.current.start();
+                } catch (e) {
+                  setError("Voice recognition unavailable. Please check your internet connection and try again.");
+                  setIsListening(false);
+                }
+              }, 500);
+            } catch (e) {
+              // Ignore stop errors
+            }
+          }, 1000);
+          return;
+        } else {
+          setError(
+            "Voice recognition requires an active internet connection.\n\n" +
+            "Chrome/Edge use Google's speech servers which are currently unreachable.\n\n" +
+            "Please:\n" +
+            "1. Check your internet connection\n" +
+            "2. Ensure you're not behind a restrictive firewall\n" +
+            "3. Try again in a moment\n\n" +
+            "Or use text input instead."
+          );
+          setIsListening(false);
+          return;
+        }
+      }
+      
+      if (event.error === "not-allowed") {
+        requestMicPermission();
+      }
+      
+      const nextError = normalizeVoiceError(event.error);
+      setError(nextError);
+      setIsListening(false);
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+    };
+  }
+
   function stopListening() {
-    recognitionRef.current?.stop();
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore stop errors
+      }
+    }
+    setIsListening(false);
   }
 
   return {
@@ -139,20 +328,47 @@ export function VoiceCommandButton({ onCommand }) {
   const { isListening, transcript, error, supported, startListening, stopListening } =
     useVoiceCommand(onCommand);
 
+  // Hide button entirely if not supported
+  if (!supported) {
+    return null;
+  }
+
+  const handleClick = async () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      await startListening();
+    }
+  };
+
   return (
     <div className={`voice-command ${isListening ? "active" : ""}`}>
       <button
         type="button"
         className="voice-button"
-        disabled={!supported}
-        onClick={isListening ? stopListening : startListening}
-        title={supported ? "Voice input" : "Voice input unavailable"}
+        onClick={handleClick}
+        title={
+          isListening 
+            ? "Click to stop listening" 
+            : "Click to start voice input"
+        }
       >
         <span className="voice-button-dot" />
-        <span className="voice-button-label">{isListening ? "Listening" : "Voice"}</span>
+        <span className="voice-button-label">
+          {isListening ? "Listening..." : "Voice"}
+        </span>
       </button>
-      {isListening && transcript ? <span className="voice-live-text">{transcript}</span> : null}
-      {!isListening && error ? <span className="voice-error" title={error}>Voice unavailable</span> : null}
+      {isListening && transcript ? (
+        <span className="voice-live-text">
+          <span className="voice-live-indicator">●</span>
+          {transcript}
+        </span>
+      ) : null}
+      {!isListening && error ? (
+        <span className="voice-error" title={error}>
+          {error.length > 50 ? error.substring(0, 50) + "..." : error}
+        </span>
+      ) : null}
     </div>
   );
 }

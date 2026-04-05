@@ -37,6 +37,25 @@ function tokenizeLine(line) {
 
 function CodeBlock({ language, code }) {
   const lines = code.replace(/\n$/, "").split("\n");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = code;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   return (
     <div className="code-shell">
@@ -47,11 +66,19 @@ function CodeBlock({ language, code }) {
           <span />
         </div>
         <div className="code-shell-language">{language || "text"}</div>
+        <button
+          type="button"
+          className="code-copy-button"
+          onClick={handleCopy}
+          title="Copy code"
+        >
+          {copied ? "✓ Copied" : "📋 Copy"}
+        </button>
       </div>
       <pre className="code-shell-body">
         <code>
           {lines.map((line, index) => (
-            <span key={`${index}-${line}`} className="code-line">
+            <div key={`${index}-${line}`} className="code-line">
               <span className="code-line-number">{index + 1}</span>
               <span className="code-line-content">
                 {tokenizeLine(line).map((piece, pieceIndex) => (
@@ -63,7 +90,7 @@ function CodeBlock({ language, code }) {
                   </span>
                 ))}
               </span>
-            </span>
+            </div>
           ))}
         </code>
       </pre>

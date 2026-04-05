@@ -3,7 +3,7 @@ API extensions for the evolution system.
 Provides endpoints for capability discovery, evolution status, logs, and rollback.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from backend.app.services.backup import BackupManager, get_backup_manager
 from backend.app.services.capability_registry import (
@@ -153,6 +153,22 @@ async def get_tool(
     if not tool:
         raise HTTPException(status_code=404, detail="Tool not found")
     return tool.to_dict()
+
+
+@evolution_router.post("/tools/{tool_name}/execute")
+async def execute_tool(
+    tool_name: str,
+    payload: dict = Body(default_factory=dict),
+    registry: DynamicToolRegistry = Depends(get_dynamic_tool_registry),
+):
+    """Execute a registered runtime tool."""
+    tool = registry.get_tool(tool_name)
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    try:
+        return await registry.execute_tool_async(tool_name, **payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # System Status

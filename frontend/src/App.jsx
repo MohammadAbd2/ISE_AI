@@ -710,8 +710,16 @@ export default function App() {
       return;
     }
     if (payload.transcript) {
+      // Set the transcript as input and auto-submit
       setInput(payload.transcript);
       updateInputTokens(payload.transcript);
+      
+      // Auto-submit after a short delay to let user see what was captured
+      setTimeout(() => {
+        // Create a synthetic event to trigger submit
+        const syntheticEvent = { preventDefault: () => {} };
+        handleSubmit(syntheticEvent);
+      }, 500);
     }
   }
 

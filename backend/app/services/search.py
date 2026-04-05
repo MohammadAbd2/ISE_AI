@@ -138,6 +138,7 @@ class SearchService:
     _DEEP_PAGE_CHARS = 2800
     _SHALLOW_PAGE_CHARS = 560
     _SNIPPET_FALLBACK_CHARS = 520
+    _MAX_QUERY_VARIANTS = 3
 
     def __init__(
         self,
@@ -196,11 +197,24 @@ class SearchService:
 
     async def search(self, session_id: str, query: str, limit: int = 5) -> WebSearchLog:
         prepared_query = self._prepare_query(query)
+        query_variants = self._build_query_variants(query, prepared_query)
         async with httpx.AsyncClient(timeout=40.0, follow_redirects=True) as client:
             instant_data = await self._duckduckgo_instant_answer(client, prepared_query)
             fetch_n = max(limit * 4, 12)
-            ddg_results = await self._duckduckgo_html_results(client, prepared_query, fetch_n)
-            bing_results = await self._bing_rss_results(client, prepared_query, fetch_n)
+            search_batches = await asyncio.gather(
+                *[
+                    self._run_query_variant(client, variant, fetch_n)
+                    for variant in query_variants
+                ],
+                return_exceptions=True,
+            )
+            ddg_results: list[dict[str, str]] = []
+            bing_results: list[dict[str, str]] = []
+            for batch in search_batches:
+                if isinstance(batch, BaseException):
+                    continue
+                ddg_results.extend(batch[0])
+                bing_results.extend(batch[1])
             ddg_results = self._filter_engine_results(ddg_results, prepared_query)
             bing_results = self._filter_engine_results(bing_results, prepared_query)
 
@@ -210,6 +224,7 @@ class SearchService:
                 result_sets=[("duckduckgo", ddg_results), ("bing", bing_results)],
                 limit=limit,
                 prepared_query=prepared_query,
+                original_query=query,
             )
 
         provider = self._provider_label(ddg_results, bing_results)
@@ -223,19 +238,20 @@ class SearchService:
         )
 
         content = self.build_prompt_context(log)
+        research_metadata = self._build_research_metadata(log, query_variants)
         await self.artifact_service.create_artifact(
             session_id=session_id,
             kind="search",
             title=query,
             content=content,
-            metadata={
-                "query": query,
-                "prepared_query": prepared_query,
-                "provider": log.provider,
-                "status": log.status,
-                "source_count": len(log.sources),
-                "sources": [source.model_dump() for source in log.sources],
-            },
+            metadata=research_metadata,
+        )
+        await self.artifact_service.create_artifact(
+            session_id=session_id,
+            kind="research",
+            title=f"Research: {query}",
+            content=self._build_research_artifact_content(log, query_variants),
+            metadata=research_metadata,
         )
         return log
 
@@ -244,7 +260,7 @@ class SearchService:
             return []
         artifacts = await self.artifact_service.list_artifacts(
             session_id=session_id,
-            kinds=["search"],
+            kinds=["research", "search"],
             limit=2,
         )
         context = []
@@ -288,6 +304,134 @@ class SearchService:
             lines.append(source_line)
         return "\n".join(lines)
 
+    def _build_research_metadata(self, log: WebSearchLog, query_variants: list[str]) -> dict:
+        conflict = self._detect_numeric_conflict(log.sources)
+        freshness = self._estimate_freshness(log.sources)
+        confidence = self._estimate_confidence(log.sources, conflict)
+        preview = log.summary or f"Collected {len(log.sources)} sources for `{log.query}`."
+        return {
+            "query": log.query,
+            "prepared_query": self._prepare_query(log.query),
+            "query_variants": query_variants,
+            "provider": log.provider,
+            "status": log.status,
+            "source_count": len(log.sources),
+            "sources": [source.model_dump() for source in log.sources],
+            "conflict": conflict,
+            "freshness": freshness,
+            "confidence": confidence,
+            "preview": preview[:240],
+        }
+
+    def _build_research_artifact_content(self, log: WebSearchLog, query_variants: list[str]) -> str:
+        lines = [
+            f"Research query: {log.query}",
+            f"Provider: {log.provider}",
+            f"Status: {log.status}",
+        ]
+        if query_variants:
+            lines.append("Query plan:")
+            lines.extend(f"- {item}" for item in query_variants)
+        freshness = self._estimate_freshness(log.sources)
+        confidence = self._estimate_confidence(log.sources, self._detect_numeric_conflict(log.sources))
+        if freshness:
+            lines.append(f"Freshness: {freshness}")
+        lines.append(f"Confidence: {confidence}")
+        if log.summary:
+            lines.append(f"Summary: {log.summary}")
+        conflict = self._detect_numeric_conflict(log.sources)
+        if conflict:
+            lines.append(f"Conflict: {conflict}")
+        if log.sources:
+            lines.append("Sources:")
+            for source in log.sources:
+                lines.append(f"- {source.title} ({source.url})")
+                if source.snippet:
+                    lines.append(f"  Snippet: {source.snippet[:320]}")
+        return "\n".join(lines)
+
+    def build_render_blocks(self, log: WebSearchLog) -> list[dict]:
+        query_plan = self._build_query_variants(log.query, self._prepare_query(log.query))
+        conflict = self._detect_numeric_conflict(log.sources)
+        freshness = self._estimate_freshness(log.sources)
+        confidence = self._estimate_confidence(log.sources, conflict)
+        if log.status == "failed":
+            return [
+                {
+                    "type": "research_result",
+                    "payload": {
+                        "query": log.query,
+                        "provider": log.provider,
+                        "status": log.status,
+                        "query_plan": query_plan,
+                        "freshness": "",
+                        "confidence": "low",
+                        "conflict": "",
+                        "sources": [],
+                    },
+                },
+                {
+                    "type": "report",
+                    "payload": {
+                        "title": "Research task failed",
+                        "summary": log.error or "The web search request failed.",
+                        "highlights": [log.query],
+                    },
+                }
+            ]
+
+        domains = [source.domain or self._extract_domain(source.url) for source in log.sources if source.url]
+        highlights = [f"{len(log.sources)} sources", *[domain for domain in dict.fromkeys(domains) if domain][:4]]
+        if conflict:
+            highlights.append(conflict)
+
+        return [
+                {
+                    "type": "research_result",
+                    "payload": {
+                        "query": log.query,
+                        "provider": log.provider,
+                        "status": log.status,
+                        "query_plan": query_plan,
+                        "freshness": freshness,
+                        "confidence": confidence,
+                        "conflict": conflict,
+                        "sources": [
+                            {
+                                "title": source.title,
+                                "url": source.url,
+                                "domain": source.domain or self._extract_domain(source.url),
+                                "snippet": source.snippet,
+                                "freshness": self._extract_source_date_text(source),
+                                "authority": self._authority_label(source.domain or self._extract_domain(source.url)),
+                            }
+                            for source in log.sources[:6]
+                        ],
+                    },
+                },
+            {
+                "type": "report",
+                "payload": {
+                    "title": "Research summary",
+                    "summary": log.summary or f"Collected {len(log.sources)} sources for `{log.query}`.",
+                    "highlights": highlights or [log.query],
+                },
+            },
+            {
+                "type": "file_result",
+                "payload": {
+                    "title": "Research sources",
+                    "files": [
+                        {
+                            "path": source.url,
+                            "summary": self._source_summary(source),
+                        }
+                        for source in log.sources[:8]
+                    ],
+                },
+            },
+        ]
+
     def failed_log(self, query: str, error: str) -> WebSearchLog:
         return WebSearchLog(
             query=query,
@@ -304,9 +448,13 @@ class SearchService:
         result_sets: list[tuple[str, list[dict[str, str]]]],
         limit: int,
         prepared_query: str = "",
+        original_query: str = "",
     ) -> list[SearchSource]:
         sources: list[SearchSource] = []
         seen_urls: set[str] = set()
+        collected: list[tuple[float, SearchSource]] = []
+        preferred_domains = self._extract_requested_domains(original_query or prepared_query)
+        prefer_freshness = self._should_prioritize_freshness(original_query or prepared_query)
 
         instant_url = self._normalize_result_url(instant_data.get("AbstractURL", ""))
         instant_text = (instant_data.get("AbstractText") or "").strip()
@@ -314,13 +462,25 @@ class SearchService:
         if instant_url and instant_text and not self._is_junk_search_result(
             instant_url, instant_heading, instant_text, prepared_query
         ):
+            source = SearchSource(
+                title=instant_heading,
+                url=instant_url,
+                snippet=instant_text,
+                domain=self._extract_domain(instant_url),
+            )
             seen_urls.add(instant_url)
-            sources.append(
-                SearchSource(
-                    title=instant_heading,
-                    url=instant_url,
-                    snippet=instant_text,
-                    domain=self._extract_domain(instant_url),
+            collected.append(
+                (
+                    self._score_result(
+                        source.title,
+                        source.url,
+                        source.snippet,
+                        prepared_query,
+                        preferred_domains,
+                        prefer_freshness,
+                    )
+                    + 0.75,
+                    source,
                 )
             )
 
@@ -334,21 +494,53 @@ class SearchService:
                 if self._is_junk_search_result(normalized_url, title, snippet, prepared_query):
                     continue
                 seen_urls.add(normalized_url)
-                sources.append(
-                    SearchSource(
-                        title=title,
-                        url=normalized_url,
-                        snippet=snippet,
-                        domain=self._extract_domain(normalized_url),
+                source = SearchSource(
+                    title=title,
+                    url=normalized_url,
+                    snippet=snippet,
+                    domain=self._extract_domain(normalized_url),
+                )
+                collected.append(
+                    (
+                        self._score_result(
+                            title,
+                            normalized_url,
+                            snippet,
+                            prepared_query,
+                            preferred_domains,
+                            prefer_freshness,
+                        ),
+                        source,
                     )
                 )
-                if len(sources) >= limit:
-                    trimmed = sources[:limit]
-                    await self._parallel_enrich_sources(client, trimmed)
-                    return trimmed
+
+        collected.sort(key=lambda item: item[0], reverse=True)
+        for _, source in collected:
+            if source.url in {item.url for item in sources}:
+                continue
+            sources.append(source)
+            if len(sources) >= limit:
+                break
+
         trimmed = sources[:limit]
         await self._parallel_enrich_sources(client, trimmed)
         return trimmed
+
+    async def _run_query_variant(
+        self,
+        client: httpx.AsyncClient,
+        query: str,
+        limit: int,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        ddg_results, bing_results = await asyncio.gather(
+            self._duckduckgo_html_results(client, query, limit),
+            self._bing_rss_results(client, query, limit),
+            return_exceptions=True,
+        )
+        return (
+            [] if isinstance(ddg_results, BaseException) else ddg_results,
+            [] if isinstance(bing_results, BaseException) else bing_results,
+        )
 
     def _should_skip_enrich_url(self, url: str) -> bool:
         try:
@@ -574,6 +766,160 @@ class SearchService:
             f"Supporting sources: {', '.join(supporting)}."
         )
 
+    def _detect_numeric_conflict(self, sources: list[SearchSource]) -> str:
+        pattern = re.compile(
+            r"(?<!\d)(?:usd\s*)?\$?\s*([1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?|[1-9]\d{2,6}(?:\.\d+)?)(?!\d)"
+        )
+        values: list[float] = []
+        for source in sources[:6]:
+            haystack = " ".join(part for part in [source.title, source.snippet, source.page_excerpt] if part)
+            for match in pattern.findall(haystack):
+                values.append(float(match.replace(",", "")))
+                break
+        if len(values) < 2:
+            return ""
+        low = min(values)
+        high = max(values)
+        if low <= 0:
+            return ""
+        spread = (high - low) / low
+        if spread >= 0.1:
+            return f"Potential source conflict: numeric signals vary from {low:,.2f} to {high:,.2f}"
+        return ""
+
+    def _source_summary(self, source: SearchSource) -> str:
+        pieces = []
+        if source.domain:
+            pieces.append(source.domain)
+        if source.snippet:
+            pieces.append(source.snippet[:280])
+        elif source.page_excerpt:
+            pieces.append(source.page_excerpt[:280])
+        return " | ".join(piece for piece in pieces if piece)
+
+    def _estimate_freshness(self, sources: list[SearchSource]) -> str:
+        years: list[int] = []
+        for source in sources[:6]:
+            parsed = self._extract_source_datetime(source)
+            if parsed is not None and 2020 <= parsed.year <= 2035:
+                years.append(parsed.year)
+        if not years:
+            return ""
+        latest = max(years)
+        if latest >= 2026:
+            return f"Signals suggest very recent coverage ({latest})."
+        if latest >= 2024:
+            return f"Signals suggest recent coverage ({latest})."
+        return f"Newest visible date signal is {latest}."
+
+    def _estimate_confidence(self, sources: list[SearchSource], conflict: str) -> str:
+        if not sources:
+            return "low"
+        score = 0.0
+        for source in sources[:4]:
+            domain = source.domain or self._extract_domain(source.url)
+            authority = self._authority_score(domain)
+            score += authority
+            if source.page_excerpt:
+                score += 0.4
+            elif source.snippet:
+                score += 0.2
+        if conflict:
+            score -= 1.0
+        average = score / max(min(len(sources), 4), 1)
+        if average >= 1.6:
+            return "high"
+        if average >= 0.9:
+            return "medium"
+        return "low"
+
+    def _authority_score(self, domain: str) -> float:
+        if not domain:
+            return 0.0
+        if domain.endswith(".gov") or domain.endswith(".edu"):
+            return 2.0
+        if any(token in domain for token in ("docs.", "developer.", "support.", "api.")):
+            return 1.5
+        if domain.count(".") >= 1:
+            return 1.0
+        return 0.5
+
+    def _authority_label(self, domain: str) -> str:
+        score = self._authority_score(domain)
+        if score >= 1.8:
+            return "official"
+        if score >= 1.3:
+            return "documentation"
+        if score >= 1.0:
+            return "standard"
+        return "unknown"
+
+    def _extract_source_date_text(self, source: SearchSource) -> str:
+        text = " ".join(part for part in [source.title, source.snippet, source.page_excerpt] if part)
+        candidates = re.findall(r"\b(?:20\d{2}|Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b", text)
+        if not candidates:
+            return ""
+        return " ".join(candidates[:3])
+
+    def _extract_source_datetime(self, source: SearchSource) -> datetime | None:
+        text = " ".join(part for part in [source.title, source.snippet, source.page_excerpt] if part)
+        month_map = {
+            "jan": 1,
+            "january": 1,
+            "feb": 2,
+            "february": 2,
+            "mar": 3,
+            "march": 3,
+            "apr": 4,
+            "april": 4,
+            "may": 5,
+            "jun": 6,
+            "june": 6,
+            "jul": 7,
+            "july": 7,
+            "aug": 8,
+            "august": 8,
+            "sep": 9,
+            "september": 9,
+            "oct": 10,
+            "october": 10,
+            "nov": 11,
+            "november": 11,
+            "dec": 12,
+            "december": 12,
+        }
+
+        full_date = re.search(
+            r"\b(?:(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(20\d{2})|(20\d{2})-(\d{2})-(\d{2}))\b",
+            text,
+            re.IGNORECASE,
+        )
+        if full_date:
+            if full_date.group(4):
+                try:
+                    return datetime(
+                        int(full_date.group(4)),
+                        int(full_date.group(5)),
+                        int(full_date.group(6)),
+                        tzinfo=UTC,
+                    )
+                except ValueError:
+                    return None
+            month_name = (full_date.group(1) or "").lower()
+            day = int(full_date.group(2))
+            year = int(full_date.group(3))
+            month = month_map.get(month_name)
+            if month:
+                try:
+                    return datetime(year, month, day, tzinfo=UTC)
+                except ValueError:
+                    return None
+
+        year_match = re.search(r"\b(20\d{2})\b", text)
+        if year_match:
+            return datetime(int(year_match.group(1)), 1, 1, tzinfo=UTC)
+        return None
+
     def _normalize_result_url(self, url: str) -> str:
         if not url:
             return ""
@@ -738,6 +1084,87 @@ class SearchService:
         if lowered.startswith("tell me "):
             lowered = lowered.removeprefix("tell me ").strip()
         return lowered or normalized
+
+    def _build_query_variants(self, original_query: str, prepared_query: str) -> list[str]:
+        variants: list[str] = []
+        preferred_domains = self._extract_requested_domains(original_query)
+        prefer_freshness = self._should_prioritize_freshness(original_query)
+
+        def add_variant(value: str) -> None:
+            candidate = re.sub(r"\s+", " ", value.strip())
+            if candidate and candidate not in variants:
+                variants.append(candidate)
+
+        add_variant(prepared_query)
+
+        if preferred_domains:
+            for domain in preferred_domains[:2]:
+                if f"site:{domain}" not in prepared_query:
+                    add_variant(f"{prepared_query} site:{domain}")
+
+        if prefer_freshness:
+            add_variant(f"{prepared_query} latest")
+            add_variant(f"{prepared_query} current")
+
+        return variants[: self._MAX_QUERY_VARIANTS]
+
+    def _extract_requested_domains(self, text: str) -> list[str]:
+        matches = re.findall(r"\bsite:([a-z0-9][a-z0-9.-]*\.[a-z]{2,})\b", text.lower())
+        return list(dict.fromkeys(matches))
+
+    def _should_prioritize_freshness(self, text: str) -> bool:
+        lower = text.lower()
+        freshness_markers = (
+            "latest",
+            "recent",
+            "today",
+            "current",
+            "news",
+            "this year",
+            "right now",
+            "new",
+            "update",
+            "updated",
+        )
+        return any(marker in lower for marker in freshness_markers)
+
+    def _score_result(
+        self,
+        title: str,
+        url: str,
+        snippet: str,
+        prepared_query: str,
+        preferred_domains: list[str],
+        prefer_freshness: bool,
+    ) -> float:
+        haystack = f"{title} {snippet}".lower()
+        tokens = [token for token in re.findall(r"[a-z0-9]{3,}", prepared_query.lower()) if token not in {"latest", "current"}]
+        overlap = sum(1 for token in tokens if token in haystack)
+        score = float(overlap)
+        domain = self._extract_domain(url)
+        if preferred_domains and any(domain.endswith(preferred) for preferred in preferred_domains):
+            score += 4.0
+        if any(domain.endswith(official) for official in (".gov", ".edu")):
+            score += 1.0
+        if any(marker in domain for marker in ("docs.", "developer.", "support.")):
+            score += 0.75
+        if prefer_freshness:
+            if any(marker in haystack for marker in ("today", "latest", "updated", "current")):
+                score += 1.0
+            parsed = self._extract_source_datetime(
+                SearchSource(title=title, url=url, snippet=snippet, domain=domain)
+            )
+            if parsed is not None:
+                age_days = max((datetime.now(UTC) - parsed).days, 0)
+                if age_days <= 30:
+                    score += 2.0
+                elif age_days <= 180:
+                    score += 1.5
+                elif age_days <= 365:
+                    score += 1.0
+                elif parsed.year >= 2024:
+                    score += 0.5
+        return score
 
     def _should_load_recent(self, user_message: str) -> bool:
         lower = user_message.lower()

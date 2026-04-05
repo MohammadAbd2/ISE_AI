@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 
 from backend.app.core.config import settings
 from backend.app.schemas.chat import (
@@ -15,12 +15,17 @@ from backend.app.schemas.chat import (
     FileUploadRequest,
     FileUploadResponse,
     ModelsResponse,
+    ArtifactListResponse,
+    ArtifactSummary,
+    SessionAnalyticsResponse,
 )
+from backend.app.services.artifacts import ArtifactService, get_artifact_service
 from backend.app.services.agent import ChatAgent
 from backend.app.services.chat import ChatService, get_chat_service
 from backend.app.services.documents import DocumentService, get_document_service
 from backend.app.services.history import HistoryService, get_history_service
 from backend.app.services.profile import ProfileService, get_profile_service
+from backend.app.services.session_analytics import build_session_analytics_payload
 
 
 router = APIRouter()
@@ -79,7 +84,7 @@ async def stream_chat(
         selected_model,
         attachments=[attachment.model_dump() for attachment in payload.attachments],
     )
-    stream, model, search_logs, image_logs = await agent.stream_response(
+    stream, model, search_logs, image_logs, render_blocks = await agent.stream_response(
         payload,
         conversation=conversation,
         session_id=session["id"],
@@ -102,6 +107,8 @@ async def stream_chat(
                 yield json.dumps({"type": "search", "log": search_log.model_dump()}) + "\n"
             for image_log in image_logs:
                 yield json.dumps({"type": "images", "log": image_log.model_dump()}) + "\n"
+            for render_block in render_blocks:
+                yield json.dumps({"type": "render", "block": render_block}) + "\n"
             async for chunk in stream:
                 chunks.append(chunk)
                 yield json.dumps({"type": "token", "content": chunk}) + "\n"
@@ -113,6 +120,7 @@ async def stream_chat(
                 model,
                 search_logs=[search_log.model_dump() for search_log in search_logs],
                 image_logs=[image_log.model_dump() for image_log in image_logs],
+                render_blocks=render_blocks,
             )
             yield json.dumps({"type": "done"}) + "\n"
         except Exception as exc:
@@ -215,4 +223,71 @@ async def upload_file(
     return FileUploadResponse(
         attachment=attachment,
         storage_mode=documents.storage_mode(),
+    )
+
+
+@router.get("/api/artifacts", response_model=ArtifactListResponse)
+async def list_artifacts(
+    session_id: str,
+    artifacts: ArtifactService = Depends(get_artifact_service),
+) -> ArtifactListResponse:
+    rows = await artifacts.list_artifacts(session_id=session_id, limit=24)
+    return ArtifactListResponse(
+        artifacts=[
+            ArtifactSummary(
+                id=row["id"],
+                session_id=row["session_id"],
+                kind=row["kind"],
+                title=row["title"],
+                preview=row.get("metadata", {}).get("preview", row.get("content", "")[:240]),
+                metadata=row.get("metadata", {}),
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in rows
+        ]
+    )
+
+
+@router.get("/api/session-analytics", response_model=SessionAnalyticsResponse)
+async def get_session_analytics(
+    session_id: str,
+    history: HistoryService = Depends(get_history_service),
+    artifacts: ArtifactService = Depends(get_artifact_service),
+) -> SessionAnalyticsResponse:
+    session = await history.get_session(session_id)
+    rows = await artifacts.list_artifacts(session_id=session_id, limit=12)
+    payload = build_session_analytics_payload(
+        session,
+        [
+            ArtifactSummary(
+                id=row["id"],
+                session_id=row["session_id"],
+                kind=row["kind"],
+                title=row["title"],
+                preview=row.get("metadata", {}).get("preview", row.get("content", "")[:240]),
+                metadata=row.get("metadata", {}),
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in rows
+        ],
+    )
+    return SessionAnalyticsResponse(**payload)
+
+
+@router.get("/api/artifacts/{artifact_id}/download")
+async def download_artifact(
+    artifact_id: str,
+    artifacts: ArtifactService = Depends(get_artifact_service),
+) -> PlainTextResponse:
+    artifact = await artifacts.get_artifact(artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    filename = artifact.get("metadata", {}).get("filename") or artifact["title"]
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return PlainTextResponse(
+        artifact.get("content", ""),
+        headers=headers,
+        media_type="text/plain; charset=utf-8",
     )

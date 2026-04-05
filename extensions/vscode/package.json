@@ -1,0 +1,261 @@
+{
+  "name": "ise-ai-copilot",
+  "displayName": "ISE AI Copilot",
+  "description": "Powerful AI coding assistant with multi-agent support - Your personal Copilot alternative",
+  "version": "1.0.0",
+  "publisher": "ise-ai",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Snippets",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact",
+    "onLanguage:java",
+    "onLanguage:go",
+    "onLanguage:rust",
+    "onLanguage:cpp",
+    "onLanguage:c"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ise-ai-copilot.chat",
+        "title": "ISE AI: Open Chat",
+        "icon": "$(comment-discussion)",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.inline-chat",
+        "title": "ISE AI: Inline Chat",
+        "icon": "$(comment)",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.explain",
+        "title": "ISE AI: Explain Code",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.refactor",
+        "title": "ISE AI: Refactor Code",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.generate-tests",
+        "title": "ISE AI: Generate Tests",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.fix-errors",
+        "title": "ISE AI: Fix Errors",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.optimize",
+        "title": "ISE AI: Optimize Code",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.document",
+        "title": "ISE AI: Generate Documentation",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.ghost-completion",
+        "title": "ISE AI: Trigger Ghost Text Completion",
+        "category": "ISE AI"
+      },
+      {
+        "command": "ise-ai-copilot.configure",
+        "title": "ISE AI: Configure",
+        "category": "ISE AI"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "ise-ai-copilot.chat",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "ise-ai-copilot.inline-chat",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "ise-ai-copilot.explain",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "ise-ai-copilot.generate-tests",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "ise-ai-copilot.explain",
+          "group": "ise-ai@1",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ise-ai-copilot.refactor",
+          "group": "ise-ai@2",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ise-ai-copilot.generate-tests",
+          "group": "ise-ai@3",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "ise-ai-copilot.fix-errors",
+          "group": "ise-ai@4"
+        },
+        {
+          "command": "ise-ai-copilot.optimize",
+          "group": "ise-ai@5",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ise-ai-copilot.document",
+          "group": "ise-ai@6",
+          "when": "editorHasSelection"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "ise-ai-copilot.chat",
+          "group": "navigation@1",
+          "when": "editorTextFocus"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "ise-ai-copilot.configure",
+          "group": "navigation",
+          "when": "view == ise-ai-copilot-chat"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ise-ai-copilot",
+          "title": "ISE AI Copilot",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ise-ai-copilot": [
+        {
+          "type": "webview",
+          "id": "ise-ai-copilot-chat",
+          "name": "Chat",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ISE AI Copilot",
+      "properties": {
+        "ise-ai-copilot.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "ISE AI Backend Server URL"
+        },
+        "ise-ai-copilot.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key (if required)"
+        },
+        "ise-ai-copilot.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model to use (leave empty for default)"
+        },
+        "ise-ai-copilot.enableGhostCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable ghost text (inline) completions"
+        },
+        "ise-ai-copilot.enableAutoComplete": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic code completions"
+        },
+        "ise-ai-copilot.completionDelay": {
+          "type": "number",
+          "default": 300,
+          "description": "Delay before triggering auto-completion (ms)"
+        },
+        "ise-ai-copilot.enableMultiAgent": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable multi-agent orchestration for complex tasks"
+        },
+        "ise-ai-copilot.maxContextLines": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of lines to include in context"
+        },
+        "ise-ai-copilot.enableTelemetry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable anonymous usage telemetry"
+        }
+      }
+    },
+    "snippets": [
+      {
+        "language": "python",
+        "path": "./snippets/python.json"
+      },
+      {
+        "language": "javascript",
+        "path": "./snippets/javascript.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0",
+    "ts-loader": "^9.4.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.0",
+    "@vscode/vsce": "^2.19.0",
+    "eslint": "^8.36.0",
+    "@typescript-eslint/eslint-plugin": "^5.56.0",
+    "@typescript-eslint/parser": "^5.56.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  }
+}

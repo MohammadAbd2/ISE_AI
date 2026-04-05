@@ -169,7 +169,7 @@ class AutonomousPlanningAgent:
         """Set callback for progress updates."""
         self.progress_callback = callback
 
-    async def create_plan(self, task: str) -> ExecutionPlan:
+    async def create_plan(self, task: str, project_context: Optional[dict[str, Any]] = None) -> ExecutionPlan:
         """
         Create an execution plan from a task description.
         
@@ -186,12 +186,16 @@ class AutonomousPlanningAgent:
         )
 
         # Parse the task to identify steps
-        steps = self._parse_task_into_steps(task)
+        steps = await self._parse_task_into_steps(task, project_context or {})
         plan.steps = steps
 
         return plan
 
-    def _parse_task_into_steps(self, task: str) -> list[PlanStep]:
+    async def _parse_task_into_steps(
+        self,
+        task: str,
+        project_context: Optional[dict[str, Any]] = None,
+    ) -> list[PlanStep]:
         """
         Parse a task description into discrete steps.
 
@@ -202,6 +206,7 @@ class AutonomousPlanningAgent:
         - Display/show tasks
         """
         task_lower = task.lower()
+        project_context = project_context or {}
         steps = []
         step_number = 1
 
@@ -227,6 +232,7 @@ class AutonomousPlanningAgent:
                 )
                 steps.append(step)
                 step_number += 1
+            steps = await self._enrich_steps_with_project_context(steps, task, project_context)
         else:
             # Pattern 2: Try to detect implicit multi-step tasks
             # Look for multiple actions in the task
@@ -247,11 +253,16 @@ class AutonomousPlanningAgent:
                     )
                     steps.append(step)
                     step_number += 1
+                steps = await self._enrich_steps_with_project_context(steps, task, project_context)
             else:
+                coding_steps = await self._build_project_aware_steps(task, project_context, step_number)
+                if coding_steps:
+                    return coding_steps
+
                 # Pattern 3: Single task - create one step
                 # Rewrite the task for better clarity
                 rewritten_task = self._rewrite_task_for_clarity(task)
-                
+
                 steps.append(PlanStep(
                     step_number=1,
                     description=rewritten_task,
@@ -259,6 +270,139 @@ class AutonomousPlanningAgent:
                     target=self._extract_target(task),
                     metadata={"content": self._extract_content_for_step(task)} if self._extract_content_for_step(task) else {},
                 ))
+
+        return steps
+
+    async def _enrich_steps_with_project_context(
+        self,
+        steps: list[PlanStep],
+        full_task: str,
+        project_context: dict[str, Any],
+    ) -> list[PlanStep]:
+        """
+        Improve text-parsed steps with project-aware targets and verification commands.
+        """
+        if not steps:
+            return steps
+
+        parent_context = self.coding_agent._understand_task(full_task, project_context)
+        created_or_edited_paths: list[str] = []
+
+        for step in steps:
+            step_context = self.coding_agent._understand_task(step.description, project_context)
+            step.metadata.setdefault("project_context", project_context)
+            step.metadata.setdefault("coding_context", step_context)
+
+            if step.action_type in {"create_file", "edit_file"}:
+                file_ops = await self.coding_agent._determine_files(step.description, step_context)
+                if file_ops:
+                    primary = file_ops[0]
+                    step.target = primary.get("path", step.target)
+                    step.metadata["operation"] = primary.get("operation", "write")
+                    if primary.get("content") is not None:
+                        step.metadata["content"] = primary["content"]
+                    if primary.get("previous_content") is not None:
+                        step.metadata["previous_content"] = primary["previous_content"]
+                    created_or_edited_paths.append(step.target)
+                    continue
+
+            if step.action_type == "run_command":
+                commands = self._resolve_verification_commands(
+                    step.description,
+                    created_or_edited_paths,
+                    parent_context,
+                )
+                if commands:
+                    step.target = commands[0]
+                    step.metadata["verification"] = True
+                    step.description = f"Verify the generated changes with `{step.target}`"
+                    continue
+
+            if step.action_type in {"show_result", "read_file"} and created_or_edited_paths and step.target == "output.txt":
+                step.target = created_or_edited_paths[-1]
+
+        return steps
+
+    def _resolve_verification_commands(
+        self,
+        step_description: str,
+        touched_paths: list[str],
+        parent_context: dict[str, Any],
+    ) -> list[str]:
+        desc_lower = step_description.lower()
+        if not any(keyword in desc_lower for keyword in ["verify", "test", "build", "check", "validate"]):
+            return []
+
+        if touched_paths:
+            return self.coding_agent._build_verification_commands(touched_paths)
+
+        inferred_path = parent_context.get("file_path")
+        if inferred_path:
+            return self.coding_agent._build_verification_commands([inferred_path])
+
+        framework = (parent_context.get("framework") or "").lower()
+        if framework == "react":
+            return ["cd frontend && npm run build"]
+        if framework == "fastapi":
+            return ["python -m compileall backend/app"]
+        return []
+
+    async def _build_project_aware_steps(
+        self,
+        task: str,
+        project_context: dict[str, Any],
+        start_step_number: int,
+    ) -> list[PlanStep]:
+        """
+        Build richer planning steps from the same project-aware coding analysis
+        used by the coding agent.
+        """
+        context = self.coding_agent._understand_task(task, project_context)
+        if context["task_intent"] not in {"create_component", "create_api", "create_utility", "edit_file", "create_file"}:
+            return []
+
+        file_ops = await self.coding_agent._determine_files(task, context)
+        if not file_ops:
+            return []
+
+        steps: list[PlanStep] = []
+        step_number = start_step_number
+        for file_op in file_ops:
+            operation = file_op.get("operation", "write")
+            action_type = "edit_file" if operation == "edit" else "create_file"
+            content = file_op.get("content")
+            metadata = {
+                "content": content,
+                "coding_context": context,
+                "project_context": project_context,
+                "operation": operation,
+            }
+            if file_op.get("previous_content") is not None:
+                metadata["previous_content"] = file_op["previous_content"]
+            steps.append(
+                PlanStep(
+                    step_number=step_number,
+                    description=file_op.get("description", task),
+                    action_type=action_type,
+                    target=file_op["path"],
+                    metadata=metadata,
+                )
+            )
+            step_number += 1
+
+        for command in self.coding_agent._build_verification_commands(
+            [file_op["path"] for file_op in file_ops if file_op.get("path")]
+        ):
+            steps.append(
+                PlanStep(
+                    step_number=step_number,
+                    description=f"Verify the generated changes with `{command}`",
+                    action_type="run_command",
+                    target=command,
+                    metadata={"verification": True},
+                )
+            )
+            step_number += 1
 
         return steps
 
@@ -434,14 +578,14 @@ class AutonomousPlanningAgent:
         """Determine the action type for a step."""
         desc_lower = step_desc.lower()
 
+        if any(kw in desc_lower for kw in ["run", "execute", "command", "verify", "test", "build", "check", "validate"]):
+            return "run_command"
         if any(kw in desc_lower for kw in ["create", "make", "new file", "write"]):
             return "create_file"
         elif any(kw in desc_lower for kw in ["update", "edit", "modify", "change", "content"]):
             return "edit_file"
         elif any(kw in desc_lower for kw in ["show", "display", "print", "result"]):
             return "show_result"
-        elif any(kw in desc_lower for kw in ["run", "execute", "command"]):
-            return "run_command"
         elif any(kw in desc_lower for kw in ["delete", "remove"]):
             return "delete_file"
         elif any(kw in desc_lower for kw in ["read", "open"]):
@@ -993,8 +1137,11 @@ print("{file_name} loaded")
     async def _execute_run_command(self, step: PlanStep):
         """Execute a run command step."""
         command = step.target
-        # Implementation would use ShellExecutor
-        step.output = f"Command executed: {command}"
+        result = await self.coding_agent.terminal.run_command(command, timeout=120)
+        output = self.coding_agent._format_verification_output(result.stdout, result.stderr)
+        if result.return_code != 0:
+            raise Exception(output or f"Command failed: {command}")
+        step.output = output or f"Command executed successfully: {command}"
 
     async def _execute_read_file(self, step: PlanStep):
         """Execute a read file step."""
@@ -1266,7 +1413,11 @@ print("{name} loaded")
         if self.progress_callback:
             await self.progress_callback(plan)
 
-    async def execute_task_with_plan(self, task: str) -> ExecutionPlan:
+    async def execute_task_with_plan(
+        self,
+        task: str,
+        project_context: Optional[dict[str, Any]] = None,
+    ) -> ExecutionPlan:
         """
         High-level method to execute a task with full planning.
 
@@ -1281,7 +1432,7 @@ print("{name} loaded")
         print(f"📋 [PlanningAgent] Creating plan for: {task[:80]}...")
         
         # Step 1: Create the plan
-        plan = await self.create_plan(task)
+        plan = await self.create_plan(task, project_context)
         print(f"✅ [PlanningAgent] Plan created with {plan.total_steps} steps")
         
         # Step 2: Execute the plan

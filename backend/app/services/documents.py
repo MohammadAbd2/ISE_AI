@@ -86,7 +86,7 @@ class DocumentService:
         if not artifacts and session_id and self._should_load_session_documents(user_message):
             artifacts = await self.artifact_service.list_artifacts(
                 session_id=session_id,
-                kinds=["txt", "pdf", "docx", "image", "video"],
+                kinds=["txt", "pdf", "docx", "archive", "image", "video"],
                 limit=3,
             )
 
@@ -131,6 +131,9 @@ class DocumentService:
         if kind in {"txt", "pdf", "docx"}:
             extracted = await asyncio.to_thread(self._extract_text, binary, filename, kind)
             return extracted, {}
+        if kind == "archive":
+            extracted, metadata = await asyncio.to_thread(self._extract_archive, binary, filename)
+            return extracted, metadata
         if kind == "image":
             return await self._summarize_image(binary, filename, content_type)
         if kind == "video":
@@ -269,6 +272,8 @@ class DocumentService:
         image_suffixes = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
         video_suffixes = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 
+        if suffix == ".zip" or normalized_type in {"application/zip", "application/x-zip-compressed"}:
+            return "archive"
         if suffix == ".pdf" or normalized_type == "application/pdf":
             return "pdf"
         if suffix == ".docx" or "wordprocessingml" in normalized_type:
@@ -297,6 +302,148 @@ class DocumentService:
             except UnicodeDecodeError:
                 continue
         return binary.decode("utf-8", errors="ignore")
+
+    def _extract_archive(self, binary: bytes, filename: str) -> tuple[str, dict]:
+        supported_suffixes = {
+            ".py", ".js", ".jsx", ".ts", ".tsx", ".json", ".md", ".txt",
+            ".css", ".html", ".yml", ".yaml", ".toml", ".env", ".java",
+            ".cs", ".go", ".rs", ".sql", ".xml", ".sh",
+        }
+        important_names = {
+            "package.json", "tsconfig.json", "vite.config.js", "vite.config.ts",
+            "requirements.txt", "pyproject.toml", "dockerfile", "docker-compose.yml",
+            ".env", ".env.example", "README.md",
+        }
+        sections: list[str] = [f"Uploaded archive: {filename}"]
+        file_count = 0
+        total_chars = 0
+        max_files = 28
+        max_chars = 22000
+        file_entries: list[tuple[str, str]] = []
+        tree_roots: dict[str, int] = {}
+        frameworks: set[str] = set()
+        dependencies: list[str] = []
+        important_configs: list[str] = []
+
+        with ZipFile(io.BytesIO(binary)) as archive:
+            names = []
+            for info in archive.infolist():
+                if info.is_dir():
+                    continue
+                path = Path(info.filename)
+                suffix = path.suffix.lower()
+                if suffix not in supported_suffixes and path.name not in important_names:
+                    continue
+                names.append(info.filename)
+                if path.parts:
+                    tree_roots[path.parts[0]] = tree_roots.get(path.parts[0], 0) + 1
+
+            sections.append(f"Contained source files: {len(names)}")
+            for name in names:
+                try:
+                    payload = archive.read(name)
+                except Exception:
+                    continue
+                content = self._extract_txt(payload).strip()
+                if not content:
+                    continue
+                file_entries.append((name, content))
+                file_path = Path(name)
+                if file_path.name in important_names:
+                    important_configs.append(name)
+                detected = self._detect_archive_frameworks(name, content)
+                frameworks.update(detected["frameworks"])
+                dependencies.extend(detected["dependencies"])
+
+            unique_dependencies = list(dict.fromkeys(dependencies))
+            dependency_preview = ", ".join(unique_dependencies[:12]) if unique_dependencies else "unknown"
+            framework_list = sorted(frameworks)
+            sections.append(f"Detected frameworks: {', '.join(framework_list) if framework_list else 'unknown'}")
+            sections.append(f"Dependency signals: {dependency_preview}")
+            if tree_roots:
+                top_roots = ", ".join(f"{name} ({count})" for name, count in sorted(tree_roots.items())[:12])
+                sections.append(f"Top-level structure: {top_roots}")
+            if important_configs:
+                sections.append(f"Important config files: {', '.join(sorted(dict.fromkeys(important_configs))[:12])}")
+
+            prioritized_entries = sorted(
+                file_entries,
+                key=lambda item: self._archive_priority(item[0], important_names),
+            )
+            for name, content in prioritized_entries[:max_files]:
+                snippet = content[:1600]
+                block = f"\nFILE: {name}\n```\n{snippet}\n```"
+                if total_chars + len(block) > max_chars:
+                    break
+                sections.append(block)
+                total_chars += len(block)
+                file_count += 1
+
+        sections.append(f"Indexed files included in prompt context: {file_count}")
+        return "\n".join(sections), {
+            "frameworks": framework_list,
+            "dependencies": unique_dependencies[:20],
+            "top_level_entries": sorted(tree_roots.keys())[:20],
+            "important_configs": sorted(dict.fromkeys(important_configs))[:20],
+            "indexed_file_count": file_count,
+            "archive_source_file_count": len(names),
+        }
+
+    def _detect_archive_frameworks(self, name: str, content: str) -> dict:
+        lower_name = name.lower()
+        lower_content = content.lower()
+        frameworks: set[str] = set()
+        dependencies: list[str] = []
+
+        if lower_name.endswith("package.json"):
+            try:
+                package = json.loads(content)
+            except json.JSONDecodeError:
+                package = {}
+            dep_map = {}
+            dep_map.update(package.get("dependencies", {}))
+            dep_map.update(package.get("devDependencies", {}))
+            deps = list(dep_map.keys())
+            dependencies.extend(deps[:30])
+            known = {
+                "react": "React",
+                "next": "Next.js",
+                "vite": "Vite",
+                "vue": "Vue",
+                "@angular/core": "Angular",
+                "svelte": "Svelte",
+                "express": "Express",
+            }
+            for dep, label in known.items():
+                if dep in dep_map:
+                    frameworks.add(label)
+
+        if lower_name.endswith("requirements.txt") or lower_name.endswith("pyproject.toml"):
+            if "fastapi" in lower_content:
+                frameworks.add("FastAPI")
+            if "django" in lower_content:
+                frameworks.add("Django")
+            if "flask" in lower_content:
+                frameworks.add("Flask")
+            for line in content.splitlines():
+                normalized = line.strip()
+                if normalized and not normalized.startswith("#"):
+                    dependencies.append(normalized[:64])
+
+        if lower_name.endswith(".tsx") or lower_name.endswith(".jsx"):
+            frameworks.add("React")
+        if "vite.config" in lower_name:
+            frameworks.add("Vite")
+
+        return {"frameworks": frameworks, "dependencies": dependencies}
+
+    def _archive_priority(self, name: str, important_names: set[str]) -> tuple[int, str]:
+        path = Path(name)
+        if path.name in important_names:
+            return (0, name)
+        if any(part in {"src", "app", "components", "pages", "backend"} for part in path.parts):
+            return (1, name)
+        return (2, name)
 
     def _extract_docx(self, binary: bytes) -> str:
         with ZipFile(io.BytesIO(binary)) as archive:
@@ -444,6 +591,7 @@ class DocumentService:
             "txt": "Attached text file",
             "pdf": "Attached PDF",
             "docx": "Attached Word document",
+            "archive": "Attached project archive",
             "image": "Attached image",
             "video": "Attached video",
         }
@@ -459,6 +607,12 @@ class DocumentService:
         phrases = [
             "document",
             "file",
+            "project",
+            "codebase",
+            "repository",
+            "repo",
+            "archive",
+            "zip",
             "attached",
             "attachment",
             "pdf",

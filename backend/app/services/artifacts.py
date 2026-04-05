@@ -21,11 +21,15 @@ class ArtifactService:
         self._memory_artifacts: dict[str, dict] = {}
         self._lock = threading.Lock()
         self._mongo_available = True
+        self._client: MongoClient | None = None
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=1500)
-            client.admin.command("ping")
-            self.collection = client[db_name]["artifacts"]
+            self._client = MongoClient(mongo_uri, serverSelectionTimeoutMS=1500)
+            self._client.admin.command("ping")
+            self.collection = self._client[db_name]["artifacts"]
         except PyMongoError:
+            if self._client is not None:
+                self._client.close()
+                self._client = None
             self.collection = None
             self._mongo_available = False
 
@@ -156,6 +160,14 @@ class ArtifactService:
 
     def storage_mode(self) -> str:
         return "mongodb" if self._mongo_available and self.collection is not None else "memory"
+
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+    def __del__(self) -> None:
+        self.close()
 
     def _serialize(self, document: dict | None) -> dict | None:
         if document is None:

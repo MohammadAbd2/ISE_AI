@@ -1,0 +1,305 @@
+{
+  "read_file": {
+    "name": "read_file",
+    "description": "Read the contents of a file",
+    "function_ref": "tool_executor.read_file",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "File path"
+      }
+    },
+    "return_type": "str",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "write_file": {
+    "name": "write_file",
+    "description": "Write content to a file",
+    "function_ref": "tool_executor.write_file",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "File path"
+      },
+      "content": {
+        "type": "string",
+        "description": "Content to write"
+      },
+      "append": {
+        "type": "boolean",
+        "description": "Append if True"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "list_directory": {
+    "name": "list_directory",
+    "description": "List files and directories in a safe workspace path",
+    "function_ref": "tool_executor.list_directory",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "Directory path"
+      }
+    },
+    "return_type": "array",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "execute_command": {
+    "name": "execute_command",
+    "description": "Execute a shell command safely",
+    "function_ref": "tool_executor.execute_command",
+    "parameters": {
+      "command": {
+        "type": "string",
+        "description": "Command to execute"
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Working directory"
+      },
+      "timeout": {
+        "type": "integer",
+        "description": "Timeout in seconds"
+      }
+    },
+    "return_type": "dict",
+    "category": "execution",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "analyze_imports": {
+    "name": "analyze_imports",
+    "description": "Extract import dependencies from a Python source file",
+    "function_ref": "tool_executor.analyze_imports",
+    "parameters": {
+      "file_path": {
+        "type": "string",
+        "description": "Python file path"
+      }
+    },
+    "return_type": "array",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "register_capability": {
+    "name": "register_capability",
+    "description": "Register a new AI capability",
+    "function_ref": "capability_registry.register",
+    "parameters": {
+      "name": {
+        "type": "string",
+        "description": "Capability name"
+      },
+      "description": {
+        "type": "string",
+        "description": "Capability description"
+      }
+    },
+    "return_type": "dict",
+    "category": "capability_management",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "update_capability_status": {
+    "name": "update_capability_status",
+    "description": "Update the status of a capability",
+    "function_ref": "capability_registry.update_status",
+    "parameters": {
+      "name": {
+        "type": "string",
+        "description": "Capability name"
+      },
+      "status": {
+        "type": "string",
+        "description": "New status (available, pending, in_development, failed, deprecated)"
+      }
+    },
+    "return_type": "dict",
+    "category": "capability_management",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "web_research": {
+    "name": "web_research",
+    "description": "Run a multi-query web research pass and persist the result as research memory",
+    "function_ref": "search_service.web_research",
+    "parameters": {
+      "query": {
+        "type": "string",
+        "description": "Research question"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Active session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "research",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "build_visualization": {
+    "name": "build_visualization",
+    "description": "Parse user data into a dynamic chart or 3D map specification",
+    "function_ref": "visualization.build_visualization_artifacts",
+    "parameters": {
+      "prompt": {
+        "type": "string",
+        "description": "Visualization request"
+      },
+      "data": {
+        "type": "string",
+        "description": "Optional raw dataset"
+      }
+    },
+    "return_type": "dict",
+    "category": "visualization",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "session_analytics": {
+    "name": "session_analytics",
+    "description": "Resolve the latest session artifacts, render blocks, and visualization context",
+    "function_ref": "session_analytics.build_session_analytics_payload",
+    "parameters": {
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "analytics",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "session_history": {
+    "name": "session_history",
+    "description": "Inspect the current chat session history and summarize recent messages",
+    "function_ref": "history_service.get_session",
+    "parameters": {
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "analytics",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "project_archive_analysis": {
+    "name": "project_archive_analysis",
+    "description": "Analyze uploaded project archives for frameworks, configs, and prioritized source context",
+    "function_ref": "document_service.extract_archive_context",
+    "parameters": {
+      "artifact_id": {
+        "type": "string",
+        "description": "Archive artifact id"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "generate_plan": {
+    "name": "generate_plan",
+    "description": "Create a project-aware execution plan for a coding or workflow task",
+    "function_ref": "planning_agent.create_plan",
+    "parameters": {
+      "task": {
+        "type": "string",
+        "description": "Task to plan"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "planning",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "execute_plan": {
+    "name": "execute_plan",
+    "description": "Execute a structured plan and return typed plan-result artifacts",
+    "function_ref": "planning_agent.execute_task_with_plan",
+    "parameters": {
+      "task": {
+        "type": "string",
+        "description": "Task to execute"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "planning",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "run_verification": {
+    "name": "run_verification",
+    "description": "Run project-aware verification commands after coding changes",
+    "function_ref": "intelligent_coding_agent.verify_changes",
+    "parameters": {
+      "paths": {
+        "type": "array",
+        "description": "Touched file paths"
+      }
+    },
+    "return_type": "dict",
+    "category": "verification",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "list_artifacts": {
+    "name": "list_artifacts",
+    "description": "List saved artifacts for the active session",
+    "function_ref": "artifact_service.list_artifacts",
+    "parameters": {
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "artifacts",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "reopen_artifact": {
+    "name": "reopen_artifact",
+    "description": "Reopen a saved artifact into the chat as a structured result",
+    "function_ref": "artifact_service.reopen_artifact",
+    "parameters": {
+      "artifact_id": {
+        "type": "string",
+        "description": "Artifact id"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "artifacts",
+    "version": "1.0.0",
+    "enabled": true
+  }
+}

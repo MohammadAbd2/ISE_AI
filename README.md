@@ -1,318 +1,332 @@
-# 🚀 ISE AI - Autonomous AI Development Agent
+# ISE AI
 
-<div align="center">
+ISE AI is a self-hosted AI workspace built around a React frontend and a FastAPI backend. It combines chat, coding-agent workflows, uploaded project understanding, typed UI artifacts, dashboard tooling, and dynamic visualization in one session-aware interface.
 
-**A self-hosted, privacy-first AI coding assistant that rivals Claude Code, Cursor, and GitHub Copilot**
+The project is no longer just a chatbot shell. It now includes:
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
+- shared intent routing across frontend and backend
+- autonomous coding and planning agents with verification
+- **multi-agent orchestration with 11 specialized agents and sub-agents**
+- **IDE extensions for VS Code and JetBrains (PyCharm, IntelliJ, etc.)**
+- **Copilot-like features: inline completions, chat, code actions**
+- uploaded ZIP/project analysis with extracted framework metadata
+- artifact-style chat outputs for reports, files, plans, and visualizations
+- reusable dashboard/workspace generation paths for tools and analytics
+- session-aware analytics surfaces that can reopen prior context
 
-**100% Local • Free • No API Keys • Privacy-Focused**
+## Current Scope
 
-</div>
+Core implemented capabilities:
 
----
+- Chat with streamed responses over `POST /api/chat/stream`
+- Mode routing for `chat`, `coding`, `research`, `visualization`, and `project_analysis`
+- File upload and archive ingestion for project context
+- Session artifact listing and download
+- Inline 2D chart and 3D map rendering in chat
+- Voice input in the frontend via browser speech APIs
+- Dashboard surface for tools, capabilities, uploaded context, and live visualizations
+- Coding agent with:
+  - task understanding
+  - existing-file target discovery
+  - multi-file generation
+  - diffs
+  - verification commands
+  - one repair attempt
+- Planning agent with:
+  - explicit/implicit multi-step parsing
+  - project-aware step enrichment
+  - verification step resolution
+  - structured plan results in chat
+- **Multi-Agent Orchestration with 11 agents:**
+  - **6 main agents (Planning, Coding, Research, Review, Testing, Documentation)**
+  - **5 sub-agents (Python, JavaScript, API, Security, Performance)**
+  - **Intelligent task decomposition and routing**
+  - **Multi-agent collaboration workflows**
+- **IDE Extensions (Copilot Alternative):**
+  - **VS Code Extension with inline completions, chat, and code actions**
+  - **JetBrains Plugin (PyCharm, IntelliJ, WebStorm, etc.)**
+  - **Keyboard shortcuts for quick actions**
+  - **Context-aware code generation and review**
+- Reusable generation flows for:
+  - dashboard components
+  - workspace views/tabs
+  - dashboard tools
+  - analytics dashboards
 
-## 📋 Table of Contents
+What it is not yet:
 
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-- [Architecture](#-architecture)
-- [Capabilities](#-capabilities)
-- [Comparison](#-comparison-with-other-ai-tools)
-- [Documentation](#-documentation)
-- [Contributing](#-contributing)
-- [License](#-license)
+- a frontier base model like ChatGPT, Claude, or Gemini
+- a full hosted speech stack with backend STT/TTS
+- a complete multi-provider model router
 
----
+## Architecture
 
-## ✨ Features
+```text
+frontend (React + Vite)
+  - App shell with Chat and Dashboard surfaces
+  - Composer with uploads and voice button
+  - Message renderer for typed artifacts
+  - DynamicVisualization for chart/map rendering
+  - Hooks for session artifacts and session analytics
 
-### 🧠 **Intelligent Mode Selection**
-- **Auto Mode**: AI automatically detects if you need chat or agent mode
-- **Chat Mode**: For questions, explanations, and discussions
-- **Agent Mode**: For coding tasks, file modifications, and development
+backend (FastAPI)
+  - chat routes
+  - evolution routes
+  - learning/planning routes
+  - orchestrator
+  - coding agent
+  - planning agent
+  - document/archive ingestion
+  - history and artifact services
 
-### 🤖 **Autonomous Coding Agent**
-- Creates, modifies, and deletes files autonomously
-- Multi-file editing with dependency tracking
-- Automatic import management
-- User confirmation before changes
-- Rollback support for undoing modifications
-
-### 🔍 **Enhanced RAG System**
-- **Semantic Search**: Vector embeddings for codebase understanding
-- **Cross-File References**: Track symbol usage across files
-- **Symbol Graph**: Navigate functions, classes, and imports
-- **100K+ Token Context**: Large context window for complex tasks
-
-### 💻 **Terminal Integration**
-- Run commands directly from chat
-- Automatic error analysis
-- Smart fix suggestions
-- Stack trace parsing (Python, TypeScript, Node.js)
-
-### 🎨 **Professional Responses**
-- ChatGPT/Claude-style formatting
-- Conversational, natural tone
-- Well-structured explanations
-- Multi-language support (Arabic/English)
-- Code examples with every explanation
-
-### 📸 **Vision Capabilities**
-- Screenshot to code conversion
-- UI mockup analysis
-- Error screenshot debugging
-- Diagram understanding
-
-### 🎤 **Voice Commands**
-- Hands-free coding
-- Voice dictation
-- Natural language commands
-
-### 📚 **Style Learning**
-- Learns your coding preferences
-- Remembers naming conventions
-- Adapts to your library choices
-- Saves to `.ise_ai_style.json`
-
-### 🔧 **Git Integration**
-- Automatic commit message generation
-- PR description writing
-- Change analysis
-- Branch management assistance
-
----
-
-## 🏃 Quick Start
-
-### Prerequisites
-
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull required models
-ollama pull llama3
-ollama pull nomic-embed-text  # For semantic search
-ollama pull llava             # For vision (optional)
+storage
+  - MongoDB if available
+  - in-memory fallback when MongoDB is unavailable
 ```
 
-### Installation
+Important backend entrypoints:
+
+- [backend/app/main.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/main.py)
+- [backend/app/api/routes.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/api/routes.py)
+- [backend/app/api/evolution_routes.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/api/evolution_routes.py)
+- [backend/app/api/learning_routes.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/api/learning_routes.py)
+
+Important frontend entrypoints:
+
+- [frontend/src/App.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/App.jsx)
+- [frontend/src/components/ChatLayout.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/ChatLayout.jsx)
+- [frontend/src/components/DashboardView.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/DashboardView.jsx)
+- [frontend/src/components/MessageList.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/MessageList.jsx)
+
+## Key Systems
+
+### Intent Routing
+
+Routing is shared across frontend and backend so visualization or project-analysis prompts do not get misrouted into code-generation flows.
+
+- Frontend: [taskIntent.js](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/lib/taskIntent.js)
+- Backend: [intent_classifier.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/intent_classifier.py)
+
+### Coding Agent
+
+The coding agent is project-aware and verification-aware.
+
+- Main file: [intelligent_coding_agent.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/intelligent_coding_agent.py)
+
+Implemented behaviors include:
+
+- create/edit file flows
+- existing target resolution
+- React/FastAPI-specific edits
+- router registration in `backend/app/main.py`
+- dashboard component registration in `DashboardView.jsx`
+- workspace view registration in `App.jsx` and `ChatLayout.jsx`
+- dashboard tool registration in `.evolution-tools.json` and `.evolution-registry.json`
+- analytics dashboard generation using `DynamicVisualization`
+
+### Planning Agent
+
+The planner now uses project context instead of relying only on text parsing.
+
+- Main file: [planning_agent.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/planning_agent.py)
+
+Implemented behaviors include:
+
+- explicit and implicit step parsing
+- project-aware file step enrichment
+- verification command resolution
+- structured plan-result cards in chat
+
+### Project / ZIP Understanding
+
+Uploaded archives are treated as project context, not just generic text.
+
+- Main file: [documents.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/documents.py)
+
+Archive ingestion extracts:
+
+- frameworks
+- dependency signals
+- important config files
+- prioritized source snippets
+- top-level project structure
+
+### Typed Artifact Rendering
+
+Chat messages can render structured blocks, not only plain text.
+
+Supported block types currently include:
+
+- `visualization`
+- `report`
+- `file_result`
+- `plan_result`
+
+Main renderer:
+
+- [MessageList.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/MessageList.jsx)
+
+### Visualization and Analytics
+
+The visualization path supports both ad hoc chat rendering and reusable analytics surfaces.
+
+- [visualization.js](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/lib/visualization.js)
+- [DynamicVisualization.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/DynamicVisualization.jsx)
+- [useSessionAnalytics.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/hooks/useSessionAnalytics.jsx)
+
+Implemented behaviors include:
+
+- 2D chart parsing from free-form text
+- 3D map parsing from coordinate rows
+- synthetic yearly salary/profit chart generation
+- analytical summary blocks for charts/maps
+- structured export-style file blocks for visualization data
+- session analytics endpoint for reopening prior visualization context
+
+## API Surfaces
+
+Main routes:
+
+- `POST /api/chat`
+- `POST /api/chat/stream`
+- `GET /api/models`
+- `GET /api/chats`
+- `GET /api/chats/{session_id}`
+- `DELETE /api/chats/{session_id}`
+- `DELETE /api/chats`
+- `GET /api/ai/profile`
+- `PUT /api/ai/profile`
+- `POST /api/files/upload`
+- `GET /api/artifacts`
+- `GET /api/artifacts/{artifact_id}/download`
+- `GET /api/session-analytics`
+
+Evolution/registry routes:
+
+- `GET /api/evolution/tools`
+- `GET /api/evolution/capabilities`
+- `GET /api/evolution/status`
+- backup / approval / log routes under `/api/evolution/*`
+
+## Setup
+
+### Backend
+
+Requirements file:
+
+- [backend/requirements.txt](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/requirements.txt)
+
+Install and run:
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/ise-ai.git
-cd ise-ai
-
-# Install Python dependencies
+cd backend
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+cd ..
+uvicorn backend.app.main:app --reload --port 8000
+```
 
-# Install frontend dependencies
+### Frontend
+
+Package file:
+
+- [frontend/package.json](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/package.json)
+
+Install and run:
+
+```bash
 cd frontend
 npm install
-
-# Start the backend
-cd ..
-python main.py
-
-# Start the frontend (new terminal)
-cd frontend
 npm run dev
 ```
 
-### Usage
+Frontend default URL is usually `http://localhost:5173`.
 
-1. Open `http://localhost:5173` in your browser
-2. Select a model (default: llama3)
-3. Choose mode: **Auto** | **Chat** | **Agent**
-4. Start chatting or coding!
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (React)                      │
-├─────────────────────────────────────────────────────────┤
-│  Auto Mode Detection • Voice Commands • Screenshot UI   │
-└─────────────────────┬───────────────────────────────────┘
-                      │ REST API + SSE
-┌─────────────────────▼───────────────────────────────────┐
-│                   Backend (FastAPI)                      │
-├─────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Chat Agent   │  │ Auto Agent   │  │ Terminal     │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Enhanced RAG │  │ Git Integration│ │ Style Learner│  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────┐
-│                    Ollama (Local LLM)                    │
-│  llama3 • nomic-embed-text • llava • etc.              │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🎯 Capabilities
-
-### Code Generation
-- ✅ Create new files and projects
-- ✅ Modify existing code
-- ✅ Refactor and optimize
-- ✅ Add tests
-- ✅ Fix bugs
-- ✅ Install dependencies
-
-### Code Understanding
-- ✅ Answer questions about your codebase
-- ✅ Explain complex logic
-- ✅ Find bugs and issues
-- ✅ Suggest improvements
-- ✅ Cross-file analysis
-
-### Development Workflow
-- ✅ Run commands and tests
-- ✅ Analyze errors
-- ✅ Generate commit messages
-- ✅ Write PR descriptions
-- ✅ Review code changes
-
-### Advanced Features
-- ✅ Screenshot to code
-- ✅ Voice commands
-- ✅ Style adaptation
-- ✅ Multi-language support
-- ✅ Rollback changes
-
----
-
-## 📊 Comparison with Other AI Tools
-
-| Feature | ISE AI | Claude Code | Cursor | Copilot |
-|---------|--------|-------------|--------|---------|
-| **Auto Mode** | ✅ | ✅ | ✅ | ❌ |
-| **Multi-File Editing** | ✅ | ✅ | ✅ | ⚠️ |
-| **Semantic Search** | ✅ | ✅ | ✅ | ❌ |
-| **Terminal Integration** | ✅ | ✅ | ✅ | ⚠️ |
-| **Screenshot Analysis** | ✅ | ✅ | ⚠️ | ❌ |
-| **Voice Commands** | ✅ | ❌ | ❌ | ❌ |
-| **Style Learning** | ✅ | ✅ | ⚠️ | ❌ |
-| **Git Integration** | ✅ | ✅ | ⚠️ | ⚠️ |
-| **Privacy (Local)** | ✅ | ❌ | ❌ | ❌ |
-| **Self-Hosted** | ✅ | ❌ | ❌ | ❌ |
-| **Free** | ✅ | ❌ | ⚠️ | ❌ |
-| **Fallback Mode** | ✅ | ❌ | ❌ | ❌ |
-
-**Legend:** ✅ Yes | ❌ No | ⚠️ Partial/Limited
-
----
-
-## 📖 Documentation
-
-Detailed documentation is available in the [`/docs`](docs/) folder:
-
-| Document | Description |
-|----------|-------------|
-| [AUTONOMOUS_AGENT_GUIDE.md](docs/AUTONOMOUS_AGENT_GUIDE.md) | Complete agent documentation |
-| [ISE_AI_COMPARISON.md](docs/ISE_AI_COMPARISON.md) | Detailed comparison with competitors |
-| [MAJOR_IMPROVEMENTS_COMPLETE.md](docs/MAJOR_IMPROVEMENTS_COMPLETE.md) | Latest features and improvements |
-| [PROFESSIONAL_RESPONSE_IMPROVEMENT.md](docs/PROFESSIONAL_RESPONSE_IMPROVEMENT.md) | Response formatting guide |
-| [AGENT_QUICKSTART.md](docs/AGENT_QUICKSTART.md) | Quick start for agent mode |
-
----
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root:
+Backend API base URL defaults to `http://localhost:8000` and can be overridden with:
 
 ```bash
-# App Configuration
-APP_NAME="ISE AI"
-ENVIRONMENT=development
-
-# Ollama Configuration
-OLLAMA_BASE_URL=http://localhost:11434
-DEFAULT_MODEL=llama3
-OLLAMA_IMAGE_MODEL=llava
-OLLAMA_VISION_MODEL=llava
-
-# Database Configuration
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=ise_ai
-
-# CORS Configuration
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-
-# Feature Flags
-ENABLE_RAG=true
-ENABLE_TERMINAL=true
-ENABLE_GIT_INTEGRATION=true
-ENABLE_VISION=true
+VITE_API_ROOT=http://localhost:8000
 ```
 
----
+### IDE Extensions (Copilot Alternative)
 
-## 🤝 Contributing
-
-We welcome contributions! Here's how you can help:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Commit your changes**: `git commit -m 'Add amazing feature'`
-4. **Push to the branch**: `git push origin feature/amazing-feature`
-5. **Open a Pull Request**
-
-### Development Setup
+**Quick Setup:**
 
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+# Build both extensions
+./build_extensions.sh
 
-# Run tests
-pytest
+# Install VS Code extension
+code --install-extension extensions/vscode/ise-ai-copilot-*.vsix
 
-# Lint code
-ruff check .
-black .
+# Install JetBrains plugin
+# In your IDE: Settings → Plugins → Install from Disk → select .zip file
 ```
 
----
+**See:**
+- [QUICKSTART.md](/home/baron/Desktop/Easv/Ai/ISE_AI/QUICKSTART.md) - Complete setup guide
+- [MULTI_AGENT_README.md](/home/baron/Desktop/Easv/Ai/ISE_AI/MULTI_AGENT_README.md) - Multi-agent documentation
+- [IMPLEMENTATION_SUMMARY.md](/home/baron/Desktop/Easv/Ai/ISE_AI/IMPLEMENTATION_SUMMARY.md) - What was implemented
 
-## 📄 License
+## Verification
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Frontend:
 
----
+```bash
+cd frontend
+npm run test:eval
+npm run build
+```
 
-## 🙏 Acknowledgments
+Backend:
 
-- **Ollama** - For providing local LLM inference
-- **FastAPI** - For the amazing web framework
-- **React** - For the frontend library
-- **All contributors** - For making ISE AI possible
+```bash
+python -m unittest tests/test_backend_eval.py -v
+python -m compileall backend/app
+```
 
----
+The repo includes eval coverage for:
 
-## 📬 Contact
+- intent routing
+- archive extraction
+- verification command selection
+- existing-file edit behavior
+- repair behavior
+- planning enrichment
+- workspace/dashboard/tool generation
+- analytics dashboard generation
+- session analytics payload assembly
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/yourusername/ise-ai/issues)
-- **Discussions**: [Join the conversation](https://github.com/yourusername/ise-ai/discussions)
+## Notable Files
 
----
+Backend:
 
-<div align="center">
+- [backend/app/services/orchestrator.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/orchestrator.py)
+- [backend/app/services/intelligent_coding_agent.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/intelligent_coding_agent.py)
+- [backend/app/services/planning_agent.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/planning_agent.py)
+- [backend/app/services/documents.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/documents.py)
+- [backend/app/services/session_analytics.py](/home/baron/Desktop/Easv/Ai/ISE_AI/backend/app/services/session_analytics.py)
 
-**Made with ❤️ by the ISE AI Team**
+Frontend:
 
-⭐ **Star this repo if you find it useful!**
+- [frontend/src/components/Composer.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/Composer.jsx)
+- [frontend/src/components/FeaturesPanel.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/FeaturesPanel.jsx)
+- [frontend/src/components/DynamicVisualization.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/components/DynamicVisualization.jsx)
+- [frontend/src/hooks/useVoiceCommand.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/hooks/useVoiceCommand.jsx)
+- [frontend/src/hooks/useSessionAnalytics.jsx](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/hooks/useSessionAnalytics.jsx)
+- [frontend/src/lib/visualization.js](/home/baron/Desktop/Easv/Ai/ISE_AI/frontend/src/lib/visualization.js)
 
-</div>
+## Docs
+
+There is additional historical/project documentation in [docs](/home/baron/Desktop/Easv/Ai/ISE_AI/docs). Some files there describe earlier versions of the system, so treat this README and the current codebase as the source of truth.
+
+## Next Directions
+
+The strongest remaining improvements are:
+
+- model/provider routing instead of one broad path
+- backend speech-to-text / text-to-speech
+- persistent analytics-spec artifacts created directly during chat turns
+- more robust multi-file semantic editing beyond pattern-based edits
+- stronger test/eval coverage for full end-to-end feature generation

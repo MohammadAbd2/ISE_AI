@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<idea-plugin>
+  <id>com.ise.ai.copilot</id>
+  <name>ISE AI Copilot</name>
+  <vendor email="support@ise-ai.com" url="https://github.com/ise-ai">ISE AI Team</vendor>
+
+  <description><![CDATA[
+    Powerful AI coding assistant with multi-agent support - Your personal Copilot alternative
+    
+    Features:
+    - Multi-agent orchestration for complex tasks
+    - Inline code completions
+    - Chat interface for interactive AI assistance
+    - Code explanation, refactoring, and test generation
+    - Context-aware suggestions
+    - Integration with ISE AI backend
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.modules.lang</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- Tool Windows -->
+    <toolWindow id="ISE AI Copilot" 
+                anchor="right" 
+                factoryClass="com.ise.ai.copilot.toolwindow.ChatToolWindowFactory"
+                icon="/icons/ise-ai-icon.svg"/>
+
+    <!-- Application Service -->
+    <applicationService serviceImplementation="com.ise.ai.copilot.service.ISEAIService"/>
+
+    <!-- Application Configuration -->
+    <applicationConfigurable parentId="tools" 
+                             instance="com.ise.ai.copilot.settings.ISEAIConfigurable"
+                             id="com.ise.ai.copilot.settings.ISEAIConfigurable"
+                             displayName="ISE AI Copilot"/>
+
+    <!-- Editor Factory Listener -->
+    <editorFactoryListener implementation="com.ise.ai.copilot.completion.ISEAIEditorFactoryListener"/>
+
+    <!-- Status Bar Widget -->
+    <statusBarWidgetFactory implementation="com.ise.ai.copilot.status.ISEAIStatusBarFactory"/>
+  </extensions>
+
+  <actions>
+    <!-- Main Action Group -->
+    <group id="com.ise.ai.copilot.MainActionGroup" 
+           text="ISE AI" 
+           description="ISE AI Copilot Actions" 
+           popup="true">
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+      
+      <action id="com.ise.ai.copilot.actions.OpenChatAction" 
+              class="com.ise.ai.copilot.actions.OpenChatAction"
+              text="Open Chat" 
+              description="Open ISE AI Chat Panel">
+        <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
+        <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift I"/>
+      </action>
+
+      <action id="com.ise.ai.copilot.actions.InlineChatAction" 
+              class="com.ise.ai.copilot.actions.InlineChatAction"
+              text="Inline Chat" 
+              description="Open inline chat">
+        <keyboard-shortcut keymap="$default" first-keystroke="ctrl I"/>
+        <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta I"/>
+      </action>
+
+      <separator/>
+
+      <action id="com.ise.ai.copilot.actions.ExplainCodeAction" 
+              class="com.ise.ai.copilot.actions.ExplainCodeAction"
+              text="Explain Code" 
+              description="Explain selected code">
+        <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift E"/>
+        <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift E"/>
+      </action>
+
+      <action id="com.ise.ai.copilot.actions.RefactorCodeAction" 
+              class="com.ise.ai.copilot.actions.RefactorCodeAction"
+              text="Refactor Code" 
+              description="Refactor selected code"/>
+
+      <action id="com.ise.ai.copilot.actions.GenerateTestsAction" 
+              class="com.ise.ai.copilot.actions.GenerateTestsAction"
+              text="Generate Tests" 
+              description="Generate tests for current file">
+        <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift T"/>
+        <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift T"/>
+      </action>
+
+      <action id="com.ise.ai.copilot.actions.FixErrorsAction" 
+              class="com.ise.ai.copilot.actions.FixErrorsAction"
+              text="Fix Errors" 
+              description="Fix errors in current file"/>
+
+      <action id="com.ise.ai.copilot.actions.OptimizeCodeAction" 
+              class="com.ise.ai.copilot.actions.OptimizeCodeAction"
+              text="Optimize Code" 
+              description="Optimize selected code"/>
+
+      <action id="com.ise.ai.copilot.actions.DocumentCodeAction" 
+              class="com.ise.ai.copilot.actions.DocumentCodeAction"
+              text="Generate Documentation" 
+              description="Generate documentation for selected code"/>
+    </group>
+
+    <!-- Editor Popup Menu Actions -->
+    <action id="com.ise.ai.copilot.actions.TriggerCompletionAction" 
+            class="com.ise.ai.copilot.actions.TriggerCompletionAction"
+            text="Trigger AI Completion" 
+            description="Trigger AI code completion">
+      <keyboard-shortcut keymap="$default" first-keystroke="alt SPACE"/>
+      <keyboard-shortcut keymap="Mac OS X" first-keystroke="alt SPACE"/>
+    </action>
+  </actions>
+</idea-plugin>

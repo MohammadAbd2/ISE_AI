@@ -116,18 +116,41 @@ function ImageIntelLogList({ imageLogs }) {
                     href={href}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={(e) => {
+                      // Prevent navigation if clicking on image
+                      if (e.target.tagName === 'IMG') {
+                        e.preventDefault();
+                        // Open image in new tab
+                        window.open(src, '_blank');
+                      }
+                    }}
                   >
                     {src ? (
-                      <img src={src} alt={hit.title || "result"} loading="lazy" />
+                      <img 
+                        src={src} 
+                        alt={hit.title || "Image result"} 
+                        loading="lazy"
+                        style={{ cursor: 'pointer' }}
+                        onError={(e) => {
+                          // Handle broken images gracefully
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = '<div class="image-broken">Image unavailable</div>';
+                        }}
+                      />
                     ) : null}
                     <span className="image-intel-caption">
                       {hit.title || hit.source_name || "Image"}
+                      {hit.source_name && <small style={{ display: 'block', opacity: 0.7, marginTop: '2px' }}>Source: {hit.source_name}</small>}
                     </span>
                   </a>
                 );
               })}
             </div>
-          ) : null}
+          ) : (
+            <div className="image-intel-empty">
+              <p>No images available. Try a different search query.</p>
+            </div>
+          )}
         </article>
       ))}
     </section>

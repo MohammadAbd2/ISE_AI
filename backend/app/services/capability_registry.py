@@ -97,53 +97,140 @@ class CapabilityRegistry:
         self.registry_file.write_text(json.dumps(data, indent=2))
 
     def _initialize_defaults(self) -> None:
-        """Initialize default capabilities if empty."""
-        if not self.capabilities:
-            self.register(
-                Capability(
-                    name="text_generation",
-                    description="Generate text responses using language models",
-                    status=CapabilityStatus.AVAILABLE,
-                    version="1.0.0",
-                    metadata={"default": True, "models": ["llama3", "mistral"]},
-                )
-            )
-            self.register(
-                Capability(
-                    name="memory_management",
-                    description="Store and retrieve user information and preferences",
-                    status=CapabilityStatus.AVAILABLE,
-                    version="1.0.0",
-                    metadata={"default": True},
-                )
-            )
-            self.register(
-                Capability(
-                    name="web_search",
-                    description="Search the web for information",
-                    status=CapabilityStatus.AVAILABLE,
-                    version="1.0.0",
-                    metadata={"provider": "pending"},
-                )
-            )
-            self.register(
-                Capability(
-                    name="image_search",
-                    description="Search for images using DuckDuckGo image search",
-                    status=CapabilityStatus.AVAILABLE,
-                    version="1.0.0",
-                    metadata={"default": True, "provider": "duckduckgo"},
-                )
-            )
-            self.register(
-                Capability(
-                    name="vision_analysis",
-                    description="Analyze and describe uploaded images",
-                    status=CapabilityStatus.AVAILABLE,
-                    version="1.0.0",
-                    metadata={"default": True, "requires": "ollama_vision_model"},
-                )
-            )
+        """Ensure built-in capabilities are always present."""
+        changed = False
+        for capability in self._default_capabilities():
+            if capability.name in self.capabilities:
+                continue
+            self.capabilities[capability.name] = capability
+            changed = True
+
+        if changed:
+            self._save_registry()
+
+    def _default_capabilities(self) -> list[Capability]:
+        """Return built-in capabilities supported by the current application."""
+        return [
+            Capability(
+                name="text_generation",
+                description="Generate text responses using language models",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "models": ["llama3", "mistral"]},
+            ),
+            Capability(
+                name="memory_management",
+                description="Store and retrieve user information and preferences",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True},
+            ),
+            Capability(
+                name="web_search",
+                description="Search the web for information",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.1.0",
+                metadata={"provider": "duckduckgo+bing", "supports_freshness": True},
+            ),
+            Capability(
+                name="image_search",
+                description="Search for images using DuckDuckGo image search",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "provider": "duckduckgo"},
+            ),
+            Capability(
+                name="vision_analysis",
+                description="Analyze and describe uploaded images",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "requires": "ollama_vision_model"},
+            ),
+            Capability(
+                name="codebase_inspection",
+                description="Inspect directories, imports, and project structure through runtime analysis tools",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "tools": ["list_directory", "analyze_imports"]},
+            ),
+            Capability(
+                name="project_archive_analysis",
+                description="Understand uploaded ZIP projects through framework, config, and code-structure extraction",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "inputs": ["zip", "project", "codebase"]},
+            ),
+            Capability(
+                name="structured_artifacts",
+                description="Return typed render blocks such as reports, file results, plans, and research cards",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "render_blocks": True},
+            ),
+            Capability(
+                name="dynamic_visualization",
+                description="Render dynamic 2D charts and 3D maps from user prompts and uploaded data",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "views": ["chart2d", "map3d"]},
+            ),
+            Capability(
+                name="session_analytics",
+                description="Resolve session-backed artifacts, reports, and latest visualization state for reusable dashboards",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "route": "/api/session-analytics"},
+            ),
+            Capability(
+                name="conversation_trace_analysis",
+                description="Inspect recent session history and artifact context for debugging, auditing, and follow-up actions",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "tools": ["session_history", "list_artifacts", "reopen_artifact"]},
+            ),
+            Capability(
+                name="planning_execution",
+                description="Create and execute project-aware multi-step plans with verification and typed results",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "plan_result_blocks": True},
+            ),
+            Capability(
+                name="intelligent_code_editing",
+                description="Perform project-aware code creation, editing, registration, and repair with verification",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "verifies_changes": True, "multi_file": True},
+            ),
+            Capability(
+                name="artifact_reopen",
+                description="Reopen saved research and file artifacts back into chat as structured outputs",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "chat_rehydration": True},
+            ),
+            Capability(
+                name="research_memory",
+                description="Persist and reuse web research runs with confidence, freshness, and source conflict signals",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "artifact_kind": "research"},
+            ),
+            Capability(
+                name="analytics_dashboard_generation",
+                description="Generate reusable analytics dashboards and workspace views backed by dynamic visualization components",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "integrates_dashboard": True, "integrates_workspace": True},
+            ),
+            Capability(
+                name="voice_input",
+                description="Capture voice input from the frontend composer when browser speech support is available",
+                status=CapabilityStatus.AVAILABLE,
+                version="1.0.0",
+                metadata={"default": True, "mode": "browser_speech"},
+            ),
+        ]
 
     def register(self, capability: Capability) -> dict:
         """

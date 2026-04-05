@@ -63,3 +63,13 @@ if learning_routes.exists():
         print("✅ Self-learning and planning endpoints loaded")
     except Exception as e:
         print(f"⚠️  Could not load learning routes: {e}")
+
+# Include multi-agent routes
+agent_routes = api_dir / "agent_routes.py"
+if agent_routes.exists():
+    try:
+        from backend.app.api.agent_routes import router as agent_router
+        app.include_router(agent_router)
+        print("✅ Multi-agent orchestration endpoints loaded")
+    except Exception as e:
+        print(f"⚠️  Could not load agent routes: {e}")

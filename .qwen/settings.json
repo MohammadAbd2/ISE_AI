@@ -9,7 +9,9 @@
       "Bash(pip install *)",
       "Bash(mkdir *)",
       "Bash(rm *)",
-      "Bash(find *)"
+      "Bash(find *)",
+      "Bash(git checkout *)",
+      "Bash(chmod *)"
     ]
   },
   "$version": 3

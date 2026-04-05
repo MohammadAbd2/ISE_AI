@@ -61,6 +61,11 @@ class ChatAttachment(BaseModel):
     preview: str = ""
 
 
+class RenderBlock(BaseModel):
+    type: str
+    payload: dict = Field(default_factory=dict)
+
+
 class ChatMessage(BaseModel):
     """Single message exchanged between the frontend and backend."""
     role: str = Field(examples=["user", "assistant", "system"])
@@ -68,6 +73,7 @@ class ChatMessage(BaseModel):
     attachments: list[ChatAttachment] = Field(default_factory=list)
     search_logs: list[WebSearchLog] = Field(default_factory=list)
     image_logs: list[ImageIntelLog] = Field(default_factory=list)
+    render_blocks: list[RenderBlock] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):
@@ -87,6 +93,7 @@ class ChatResponse(BaseModel):
     model: str
     search_logs: list[WebSearchLog] = Field(default_factory=list)
     image_logs: list[ImageIntelLog] = Field(default_factory=list)
+    render_blocks: list[RenderBlock] = Field(default_factory=list)
 
 
 class ModelsResponse(BaseModel):
@@ -135,3 +142,26 @@ class FileUploadRequest(BaseModel):
 class FileUploadResponse(BaseModel):
     attachment: ChatAttachment
     storage_mode: str
+
+
+class ArtifactSummary(BaseModel):
+    id: str
+    session_id: str
+    kind: str
+    title: str
+    preview: str = ""
+    metadata: dict = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+
+
+class ArtifactListResponse(BaseModel):
+    artifacts: list[ArtifactSummary]
+
+
+class SessionAnalyticsResponse(BaseModel):
+    session_id: str
+    visualization: dict | None = None
+    render_blocks: list[RenderBlock] = Field(default_factory=list)
+    artifacts: list[ArtifactSummary] = Field(default_factory=list)
+    has_context: bool = False

@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from backend.app.core.config import settings
-from backend.app.schemas.chat import ChatAttachment, ChatMessage, ImageIntelLog, WebSearchLog
+from backend.app.schemas.chat import ChatAttachment, ChatMessage, ImageIntelLog, RenderBlock, WebSearchLog
 
 
 def _utc_now() -> datetime:
@@ -127,6 +127,7 @@ class HistoryService:
         attachments: list[dict] | None = None,
         search_logs: list[dict] | None = None,
         image_logs: list[dict] | None = None,
+        render_blocks: list[dict] | None = None,
     ) -> None:
         await asyncio.to_thread(
             self._append_message_sync,
@@ -137,6 +138,7 @@ class HistoryService:
             attachments,
             search_logs,
             image_logs,
+            render_blocks,
         )
 
     def _append_message_sync(
@@ -148,6 +150,7 @@ class HistoryService:
         attachments: list[dict] | None = None,
         search_logs: list[dict] | None = None,
         image_logs: list[dict] | None = None,
+        render_blocks: list[dict] | None = None,
     ) -> None:
         if not self._mongo_available or self.collection is None:
             with self._lock:
@@ -161,6 +164,7 @@ class HistoryService:
                         "attachments": attachments or [],
                         "search_logs": search_logs or [],
                         "image_logs": image_logs or [],
+                        "render_blocks": render_blocks or [],
                     }
                 )
                 document["updated_at"] = _utc_now()
@@ -181,6 +185,7 @@ class HistoryService:
                             "attachments": attachments or [],
                             "search_logs": search_logs or [],
                             "image_logs": image_logs or [],
+                            "render_blocks": render_blocks or [],
                         }
                     },
                     "$set": {"updated_at": now, "model": model},
@@ -288,6 +293,7 @@ class HistoryService:
                     ],
                     search_logs=_coerce_model_list(WebSearchLog, item.get("search_logs")),
                     image_logs=_coerce_model_list(ImageIntelLog, item.get("image_logs")),
+                    render_blocks=_coerce_model_list(RenderBlock, item.get("render_blocks")),
                 )
                 for item in document.get("messages", [])
             ],
