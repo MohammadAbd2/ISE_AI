@@ -1,5 +1,4 @@
 import React from "react";
-import "./utils/console_logger.js";  // Auto-generated console logger
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles/global.css";

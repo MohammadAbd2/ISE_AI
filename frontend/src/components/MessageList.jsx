@@ -1,5 +1,7 @@
 import RichMessage from "./RichMessage";
 import { useState } from "react";
+import DynamicVisualization from "./DynamicVisualization";
+import { artifactDownloadUrl } from "../lib/api";
 
 function AttachmentList({ attachments }) {
   if (!attachments || attachments.length === 0) {
@@ -183,12 +185,152 @@ function SearchLogList({ searchLogs }) {
   );
 }
 
+function ReportBlock({ payload }) {
+  const title = payload?.title || "Report";
+  const summary = payload?.summary || "";
+  const highlights = Array.isArray(payload?.highlights) ? payload.highlights : [];
+
+  return (
+    <section className="render-report-card">
+      <div className="render-card-header">
+        <strong>{title}</strong>
+        <span>Report</span>
+      </div>
+      {summary ? <p className="render-card-summary">{summary}</p> : null}
+      {highlights.length > 0 ? (
+        <div className="render-card-list">
+          {highlights.map((item, index) => (
+            <div key={`${title}-${index}`} className="render-card-item">
+              {item}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function FileResultBlock({ payload }) {
+  const files = Array.isArray(payload?.files) ? payload.files : [];
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="render-file-card">
+      <div className="render-card-header">
+        <strong>{payload?.title || "Files changed"}</strong>
+        <span>{files.length} file{files.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="render-card-list">
+        {files.map((file, index) => (
+          <div key={`${file.path || file.artifact_id || index}`} className="render-card-item file-item">
+            <div>
+              <strong>{file.path || file.title || "Generated file"}</strong>
+              {file.summary ? <p>{file.summary}</p> : null}
+              {file.diff ? <pre className="render-diff-preview">{file.diff}</pre> : null}
+            </div>
+            {file.artifact_id ? (
+              <a href={artifactDownloadUrl(file.artifact_id)} target="_blank" rel="noreferrer">
+                Download
+              </a>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ResearchResultBlock({ payload }) {
+  const sources = Array.isArray(payload?.sources) ? payload.sources : [];
+  const queryPlan = Array.isArray(payload?.query_plan) ? payload.query_plan : [];
+
+  return (
+    <section className="render-research-card">
+      <div className="render-card-header">
+        <strong>Research Result</strong>
+        <span>{payload?.provider || "web"}</span>
+      </div>
+      {payload?.query ? <p className="render-card-summary">{payload.query}</p> : null}
+      <div className="research-meta">
+        {payload?.confidence ? <span className={`research-confidence ${payload.confidence}`}>Confidence: {payload.confidence}</span> : null}
+        {payload?.freshness ? <span className="research-freshness">{payload.freshness}</span> : null}
+      </div>
+      {queryPlan.length > 0 ? (
+        <div className="research-plan">
+          {queryPlan.map((query) => (
+            <code key={query}>{query}</code>
+          ))}
+        </div>
+      ) : null}
+      {payload?.conflict ? <div className="research-conflict">{payload.conflict}</div> : null}
+      {sources.length > 0 ? (
+        <div className="render-card-list">
+          {sources.map((source) => (
+            <a
+              key={source.url}
+              className="render-card-item research-source"
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <strong>{source.title}</strong>
+              <span>{source.domain || source.url}</span>
+              <div className="research-source-meta">
+                {source.authority ? <small>{source.authority}</small> : null}
+                {source.freshness ? <small>{source.freshness}</small> : null}
+              </div>
+              {source.snippet ? <p>{source.snippet}</p> : null}
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PlanResultBlock({ payload }) {
+  const steps = Array.isArray(payload?.steps) ? payload.steps : [];
+  if (steps.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="render-plan-card">
+      <div className="render-card-header">
+        <strong>{payload?.title || "Execution plan"}</strong>
+        <span>{payload?.status || "pending"}</span>
+      </div>
+      <div className="render-card-list plan-list">
+        {steps.map((step) => (
+          <div
+            key={`${payload?.title || "plan"}-${step.step_number}-${step.target || step.description}`}
+            className={`render-card-item plan-item ${step.status || "pending"}`}
+          >
+            <div className="plan-item-row">
+              <strong>Step {step.step_number}</strong>
+              <span className="plan-status">{step.status || "pending"}</span>
+            </div>
+            <p>{step.description}</p>
+            {step.target ? <code>{step.target}</code> : null}
+            {step.output ? <pre className="render-plan-output">{step.output}</pre> : null}
+            {step.error ? <pre className="render-plan-output error">{step.error}</pre> : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function MessageBubbleWithAttachments({
   role,
   content,
   attachments,
   searchLogs,
   imageLogs,
+  visualization,
+  renderBlocks,
   messageKey,
   copiedKey,
   onCopy,
@@ -214,6 +356,22 @@ function MessageBubbleWithAttachments({
         {isAssistant ? <ImageIntelLogList imageLogs={imageLogs} /> : null}
         {isAssistant ? <AgentProgressLog content={content} /> : null}
         <RichMessage content={content || " "} />
+        {visualization ? <DynamicVisualization spec={visualization} /> : null}
+        {Array.isArray(renderBlocks)
+          ? renderBlocks.map((block, index) =>
+              block?.type === "visualization" ? (
+                <DynamicVisualization key={`${messageKey}-block-${index}`} spec={block.payload} />
+              ) : block?.type === "report" ? (
+                <ReportBlock key={`${messageKey}-block-${index}`} payload={block.payload} />
+              ) : block?.type === "research_result" ? (
+                <ResearchResultBlock key={`${messageKey}-block-${index}`} payload={block.payload} />
+              ) : block?.type === "plan_result" ? (
+                <PlanResultBlock key={`${messageKey}-block-${index}`} payload={block.payload} />
+              ) : block?.type === "file_result" ? (
+                <FileResultBlock key={`${messageKey}-block-${index}`} payload={block.payload} />
+              ) : null,
+            )
+          : null}
       </div>
     </article>
   );
@@ -231,6 +389,8 @@ export default function MessageList({ messages, isLoading, copiedKey, onCopyMess
           attachments={message.attachments || []}
           searchLogs={message.search_logs || []}
           imageLogs={message.image_logs || []}
+          visualization={message.visualization || null}
+          renderBlocks={message.render_blocks || []}
           messageKey={`${message.role}-${index}`}
           copiedKey={copiedKey}
           onCopy={() => onCopyMessage(message, index)}

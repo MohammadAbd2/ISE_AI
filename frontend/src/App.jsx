@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import ChatLayout from "./components/ChatLayout";
 import Composer from "./components/Composer";
+import DashboardView from "./components/DashboardView";
 import MessageList from "./components/MessageList";
+import { api, executeEvolutionTool, fetchJson } from "./lib/api";
+import {
+  buildVisualizationArtifacts,
+  buildVisualizationSpec,
+  summarizeVisualization,
+} from "./lib/visualization";
+import { classifyTaskIntent } from "./lib/taskIntent";
 
-const API_URL = "http://localhost:8000/api/chat/stream";
-const MODELS_URL = "http://localhost:8000/api/models";
-const CHATS_URL = "http://localhost:8000/api/chats";
-const PROFILE_URL = "http://localhost:8000/api/ai/profile";
-const UPLOAD_URL = "http://localhost:8000/api/files/upload";
 const DEFAULT_MODEL = "llama3";
 const DRAFT_SESSION_ID = "draft-chat";
-const DEFAULT_EFFORT = "medium";
 
 function createDraftContextId() {
   if (globalThis.crypto?.randomUUID) {
@@ -38,150 +40,197 @@ function readFileAsBase64(file) {
 const initialMessages = [
   {
     role: "assistant",
-    content:
-      "ISE AI secure channel established. Select a model and start the session.",
+    content: "ISE AI is online. Ask for code changes, uploads, charts, maps, or project analysis.",
     search_logs: [],
     image_logs: [],
   },
 ];
 
 export default function App() {
-  // App keeps network state, selected chat, and streaming output in one place.
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [activeModel, setActiveModel] = useState(DEFAULT_MODEL);
-  const [responseEffort, setResponseEffort] = useState(DEFAULT_EFFORT);
-  const [models, setModels] = useState([DEFAULT_MODEL, "qwen:7b", "llama3.2:3b"]);
+  const [responseEffort, setResponseEffort] = useState("medium");
+  const [models, setModels] = useState([DEFAULT_MODEL]);
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [draftContextId, setDraftContextId] = useState(createDraftContextId);
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const [customInstructions, setCustomInstructions] = useState("");
   const [memoryText, setMemoryText] = useState("");
-  const [storageMode, setStorageMode] = useState("memory");
-  const [profileStorageMode, setProfileStorageMode] = useState("memory");
   const [profileSaved, setProfileSaved] = useState("");
   const [error, setError] = useState("");
   const [copiedKey, setCopiedKey] = useState("");
-  const [mode, setMode] = useState("auto");  // Changed default to "auto"
+  const [mode, setMode] = useState("auto");
+  const [activeView, setActiveView] = useState("chat");
   const [tokenUsage, setTokenUsage] = useState({
     inputTokens: 0,
     outputTokens: 0,
     totalTokens: 0,
-    availableTokens: 100000,  // Default available tokens
+    availableTokens: 100000,
   });
+  const [tools, setTools] = useState([]);
+  const [capabilities, setCapabilities] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({});
+  const [artifacts, setArtifacts] = useState([]);
+  const [activeVisualization, setActiveVisualization] = useState(null);
+  const [operationState, setOperationState] = useState({ loading: false, message: "", error: "" });
   const abortRef = useRef(null);
   const copiedTimeoutRef = useRef(null);
 
-  function appendSearchLog(messageIndex, log) {
-    setMessages((current) =>
-      current.map((message, index) => {
-        if (index !== messageIndex) {
-          return message;
-        }
-        const existingLogs = Array.isArray(message.search_logs) ? message.search_logs : [];
-        const nextLogs = [...existingLogs, log];
-        return { ...message, search_logs: nextLogs };
-      }),
-    );
+  function currentContextId() {
+    return currentSessionId || draftContextId;
   }
 
-  function appendImageLog(messageIndex, log) {
-    setMessages((current) =>
-      current.map((message, index) => {
-        if (index !== messageIndex) {
-          return message;
-        }
-        const existingLogs = Array.isArray(message.image_logs) ? message.image_logs : [];
-        const nextLogs = [...existingLogs, log];
-        return { ...message, image_logs: nextLogs };
-      }),
-    );
-  }
-
-  async function handleStreamEvent(data, assistantIndex) {
-    if (data.type === "meta" && data.model) {
-      setActiveModel(data.model);
+  function buildArtifactReportBlocks(nextArtifacts) {
+    if (!Array.isArray(nextArtifacts) || nextArtifacts.length === 0) {
+      return [];
     }
-    if (data.type === "meta" && data.session_id) {
-      setCurrentSessionId(data.session_id);
-    }
-    if (data.type === "meta" && data.storage_mode) {
-      setStorageMode(data.storage_mode);
-    }
-    if (data.type === "meta" && data.profile_storage_mode) {
-      setProfileStorageMode(data.profile_storage_mode);
-    }
-    if (data.type === "search" && data.log) {
-      appendSearchLog(assistantIndex, data.log);
-    }
-    if (data.type === "images" && data.log) {
-      appendImageLog(assistantIndex, data.log);
-    }
-    if (data.type === "token") {
-      // Update message content
-      setMessages((current) =>
-        current.map((message, index) =>
-          index === assistantIndex
-            ? { ...message, content: message.content + data.content }
-            : message,
-        ),
-      );
-      
-      // ✅ Subtract output tokens as they are generated
-      const outputTokenCount = Math.ceil(data.content.length / 4);
-      subtractOutputTokens(outputTokenCount);
-    }
-    if (data.type === "error") {
-      throw new Error(data.message || "Streaming failed");
-    }
-    if (data.type === "done") {
-      await loadSessions();
-      await loadProfile();
-    }
+    const latest = nextArtifacts.slice(0, 5);
+    return [
+      {
+        type: "report",
+        payload: {
+          title: "Session context updated",
+          summary: "New artifacts are available to ground the assistant in your uploaded files and generated outputs.",
+          highlights: latest.map((artifact) => `${artifact.kind}: ${artifact.title}`),
+        },
+      },
+      {
+        type: "file_result",
+        payload: {
+          title: "Recent artifacts",
+          files: latest.map((artifact) => ({
+            title: artifact.title,
+            summary: artifact.preview,
+            artifact_id: artifact.id,
+          })),
+        },
+      },
+    ];
   }
 
   useEffect(() => {
-    async function loadModels() {
-      try {
-        const response = await fetch(MODELS_URL);
-        if (!response.ok) {
-          throw new Error("Failed to load models");
-        }
-        const data = await response.json();
-        if (Array.isArray(data.models) && data.models.length > 0) {
-          setModels(data.models);
-          if (!data.models.includes(activeModel)) {
-            setActiveModel(data.models[0]);
-          }
-        }
-      } catch {
-        setModels((current) => Array.from(new Set(current)));
-      }
-    }
-
     loadModels();
-  }, []);
-
-  useEffect(() => {
-    // Initial page load restores chat history and the assistant profile.
     loadSessions();
     loadProfile();
-  }, []);
-
-  useEffect(() => {
+    loadDashboard();
     return () => {
       copiedTimeoutRef.current && clearTimeout(copiedTimeoutRef.current);
       abortRef.current?.abort();
     };
   }, []);
 
-  function stopGeneration() {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setIsLoading(false);
+  useEffect(() => {
+    loadArtifacts(currentContextId());
+  }, [currentSessionId, draftContextId]);
+
+  async function loadModels() {
+    try {
+      const data = await fetchJson(api.models);
+      if (Array.isArray(data.models) && data.models.length > 0) {
+        setModels(data.models);
+        setActiveModel((current) => (data.models.includes(current) ? current : data.models[0]));
+      }
+    } catch {
+      setModels([DEFAULT_MODEL]);
+    }
+  }
+
+  async function loadSessions() {
+    try {
+      const data = await fetchJson(api.chats);
+      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
+    } catch {
+      setSessions([]);
+    }
+  }
+
+  async function loadProfile() {
+    try {
+      const data = await fetchJson(api.profile);
+      setCustomInstructions(data.custom_instructions || "");
+      setMemoryText(data.memory || "");
+    } catch {
+      setCustomInstructions("");
+      setMemoryText("");
+    }
+  }
+
+  async function loadDashboard() {
+    const tasks = await Promise.allSettled([
+      fetchJson(api.tools),
+      fetchJson(api.capabilities),
+      fetchJson(api.stats),
+    ]);
+    setTools(tasks[0].status === "fulfilled" ? tasks[0].value.tools || [] : []);
+    setCapabilities(tasks[1].status === "fulfilled" ? tasks[1].value.capabilities || [] : []);
+    setDashboardStats(tasks[2].status === "fulfilled" ? tasks[2].value : {});
+  }
+
+  async function loadArtifacts(sessionId) {
+    if (!sessionId) {
+      setArtifacts([]);
+      return [];
+    }
+    try {
+      const data = await fetchJson(`${api.artifacts}?session_id=${encodeURIComponent(sessionId)}`);
+      const nextArtifacts = data.artifacts || [];
+      setArtifacts(nextArtifacts);
+      return nextArtifacts;
+    } catch {
+      setArtifacts([]);
+      return [];
+    }
+  }
+
+  async function saveProfile() {
+    try {
+      const data = await fetchJson(api.profile, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ custom_instructions: customInstructions, memory: memoryText }),
+      });
+      setCustomInstructions(data.custom_instructions || "");
+      setMemoryText(data.memory || "");
+      setProfileSaved("Saved");
+      setTimeout(() => setProfileSaved(""), 1500);
+    } catch {
+      setError("Failed to save AI profile.");
+    }
+  }
+
+  function resetTokenUsage() {
+    setTokenUsage({ inputTokens: 0, outputTokens: 0, totalTokens: 0, availableTokens: 100000 });
+  }
+
+  function calculateTokenUsage(text) {
+    return Math.ceil((text || "").length / 4);
+  }
+
+  function updateInputTokens(text) {
+    setTokenUsage((current) => ({ ...current, inputTokens: calculateTokenUsage(text) }));
+  }
+
+  function consumeInputTokens(text) {
+    const count = calculateTokenUsage(text);
+    setTokenUsage((current) => ({
+      ...current,
+      totalTokens: current.totalTokens + count,
+      availableTokens: Math.max(0, current.availableTokens - count),
+    }));
+  }
+
+  function consumeOutputTokens(text) {
+    const count = calculateTokenUsage(text);
+    setTokenUsage((current) => ({
+      ...current,
+      outputTokens: current.outputTokens + count,
+      totalTokens: current.totalTokens + count,
+      availableTokens: Math.max(0, current.availableTokens - count),
+    }));
   }
 
   function resetChat() {
@@ -195,36 +244,9 @@ export default function App() {
     setError("");
     setIsLoading(false);
     setCopiedKey("");
+    setActiveVisualization(null);
+    setArtifacts([]);
     resetTokenUsage();
-  }
-
-  async function loadSessions() {
-    try {
-      const response = await fetch(CHATS_URL);
-      if (!response.ok) {
-        throw new Error("Failed to load chats");
-      }
-      const data = await response.json();
-      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
-      setStorageMode(data.storage_mode || "memory");
-    } catch {
-      setSessions([]);
-    }
-  }
-
-  async function loadProfile() {
-    try {
-      const response = await fetch(PROFILE_URL);
-      if (!response.ok) {
-        throw new Error("Failed to load profile");
-      }
-      const data = await response.json();
-      setCustomInstructions(data.custom_instructions || "");
-      setMemoryText(data.memory || "");
-      setProfileStorageMode(data.storage_mode || "memory");
-    } catch {
-      setProfileStorageMode("memory");
-    }
   }
 
   async function openSession(sessionId) {
@@ -233,24 +255,22 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`${CHATS_URL}/${sessionId}`);
-      if (!response.ok) {
-        throw new Error("Failed to load chat");
-      }
-      const data = await response.json();
+      const data = await fetchJson(`${api.chats}/${sessionId}`);
       setCurrentSessionId(data.id);
       setActiveModel(data.model || DEFAULT_MODEL);
       setMessages(
         data.messages.length > 0
-          ? data.messages.map((m) => ({
-              ...m,
-              search_logs: m.search_logs || [],
-              image_logs: m.image_logs || [],
+          ? data.messages.map((message) => ({
+              ...message,
+              search_logs: message.search_logs || [],
+              image_logs: message.image_logs || [],
+              render_blocks: message.render_blocks || [],
             }))
           : initialMessages,
       );
       setPendingAttachments([]);
       setError("");
+      await loadArtifacts(data.id);
     } catch {
       setError("Failed to load chat history.");
     }
@@ -261,12 +281,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch(`${CHATS_URL}/${sessionId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete chat");
-      }
+      await fetchJson(`${api.chats}/${sessionId}`, { method: "DELETE" });
       if (sessionId === currentSessionId) {
         resetChat();
       }
@@ -278,12 +293,7 @@ export default function App() {
 
   async function clearHistory() {
     try {
-      const response = await fetch(CHATS_URL, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to clear history");
-      }
+      await fetchJson(api.chats, { method: "DELETE" });
       resetChat();
       setSessions([]);
     } catch {
@@ -291,39 +301,15 @@ export default function App() {
     }
   }
 
-  async function saveProfile() {
-    try {
-      const response = await fetch(PROFILE_URL, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          custom_instructions: customInstructions,
-          memory: memoryText,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to save profile");
-      }
-      const data = await response.json();
-      setCustomInstructions(data.custom_instructions || "");
-      setMemoryText(data.memory || "");
-      setProfileStorageMode(data.storage_mode || "memory");
-      setProfileSaved("Saved");
-      setTimeout(() => setProfileSaved(""), 1600);
-    } catch {
-      setError("Failed to save AI profile.");
-    }
-  }
-
   async function handleCopyMessage(message, index) {
-    const key = `${message.role}-${index}`;
     try {
       await navigator.clipboard.writeText(message.content);
+      const key = `${message.role}-${index}`;
       setCopiedKey(key);
       copiedTimeoutRef.current && clearTimeout(copiedTimeoutRef.current);
-      copiedTimeoutRef.current = setTimeout(() => setCopiedKey(""), 1600);
+      copiedTimeoutRef.current = setTimeout(() => setCopiedKey(""), 1500);
     } catch {
-      setError("Copy failed. Clipboard access is blocked in this browser.");
+      setError("Copy failed.");
     }
   }
 
@@ -333,31 +319,33 @@ export default function App() {
     try {
       const uploaded = [];
       for (const file of files) {
-        const dataBase64 = await readFileAsBase64(file);
-        const response = await fetch(UPLOAD_URL, {
+        const response = await fetchJson(api.upload, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            session_id: currentSessionId || draftContextId,
+            session_id: currentContextId(),
             filename: file.name,
             content_type: file.type || "application/octet-stream",
-            data_base64: dataBase64,
+            data_base64: await readFileAsBase64(file),
           }),
         });
-        if (!response.ok) {
-          let details = "Upload failed";
-          try {
-            const errorData = await response.json();
-            details = errorData.detail || details;
-          } catch {
-            details = await response.text();
-          }
-          throw new Error(details || "Upload failed");
-        }
-        const data = await response.json();
-        uploaded.push(data.attachment);
+        uploaded.push(response.attachment);
       }
       setPendingAttachments((current) => [...current, ...uploaded]);
+      const latestArtifacts = await loadArtifacts(currentContextId());
+      setActiveView("dashboard");
+      if (uploaded.length > 0) {
+        setMessages((current) => [
+          ...current,
+          {
+            role: "assistant",
+            content: "I added the uploaded material to the active session context.",
+            search_logs: [],
+            image_logs: [],
+            render_blocks: buildArtifactReportBlocks(latestArtifacts),
+          },
+        ]);
+      }
     } catch (uploadError) {
       setError(uploadError.message || "File upload failed.");
     } finally {
@@ -365,126 +353,223 @@ export default function App() {
     }
   }
 
-  function handleRemoveAttachment(attachmentId) {
-    setPendingAttachments((current) =>
-      current.filter((attachment) => attachment.id !== attachmentId),
-    );
+  function handleOpenArtifact(artifact) {
+    if (!artifact) {
+      return;
+    }
+
+    if (artifact.kind === "research") {
+      const metadata = artifact.metadata || {};
+      const sources = Array.isArray(metadata.sources) ? metadata.sources : [];
+      const researchBlock = {
+        type: "research_result",
+        payload: {
+          query: metadata.query || artifact.title,
+          provider: metadata.provider || "web",
+          status: metadata.status || "completed",
+          query_plan: metadata.query_variants || [],
+          freshness: metadata.freshness || "",
+          confidence: metadata.confidence || "medium",
+          conflict: metadata.conflict || "",
+          sources: sources.slice(0, 6).map((source) => ({
+            title: source.title,
+            url: source.url,
+            domain: source.domain,
+            snippet: source.snippet,
+            freshness: source.page_excerpt || source.snippet || "",
+            authority: source.domain?.includes("docs.") || source.domain?.endsWith(".gov") ? "official" : "standard",
+          })),
+        },
+      };
+      const reportBlock = {
+        type: "report",
+        payload: {
+          title: artifact.title,
+          summary: artifact.preview || "Reopened research artifact.",
+          highlights: [
+            metadata.provider || "web",
+            metadata.freshness || "",
+            metadata.confidence ? `${metadata.confidence} confidence` : "",
+          ].filter(Boolean),
+        },
+      };
+      const fileBlock = {
+        type: "file_result",
+        payload: {
+          title: "Research sources",
+          files: sources.slice(0, 6).map((source) => ({
+            path: source.url,
+            summary: [source.domain, source.snippet].filter(Boolean).join(" | "),
+          })),
+        },
+      };
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: `Reopened saved research: ${metadata.query || artifact.title}`,
+          search_logs: [],
+          image_logs: [],
+          render_blocks: [researchBlock, reportBlock, fileBlock],
+        },
+      ]);
+      setActiveView("chat");
+      return;
+    }
+
+    setMessages((current) => [
+      ...current,
+      {
+        role: "assistant",
+        content: `Opened artifact: ${artifact.title}`,
+        search_logs: [],
+        image_logs: [],
+        render_blocks: [
+          {
+            type: "file_result",
+            payload: {
+              title: "Artifact preview",
+              files: [
+                {
+                  title: artifact.title,
+                  summary: artifact.preview,
+                  artifact_id: artifact.id,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+    setActiveView("chat");
   }
 
-  function calculateTokenUsage(text) {
-    // Simple token estimation: ~4 characters per token for English
-    const estimatedTokens = Math.ceil(text.length / 4);
-    return estimatedTokens;
+  function appendAssistantMessage(content, renderBlocks = []) {
+    setMessages((current) => [
+      ...current,
+      {
+        role: "assistant",
+        content,
+        search_logs: [],
+        image_logs: [],
+        render_blocks: renderBlocks,
+      },
+    ]);
+    setActiveView("chat");
   }
 
-  function updateTokenUsageForInput(text) {
-    // Only calculate, don't subtract yet - will subtract on send
-    const inputTokens = calculateTokenUsage(text);
-    setTokenUsage(prev => ({
-      ...prev,
-      inputTokens: inputTokens,
-      // Don't subtract from availableTokens yet - will do on send
-    }));
+  async function runDashboardOperation(kind) {
+    const sessionId = currentContextId();
+    if (!sessionId) {
+      setOperationState({ loading: false, message: "", error: "Start or open a chat session first." });
+      return;
+    }
+
+    setOperationState({ loading: true, message: "", error: "" });
+    try {
+      if (kind === "session_analytics") {
+        const result = await executeEvolutionTool("session_analytics", { session_id: sessionId });
+        const blocks = [...(result.render_blocks || [])];
+        if (result.visualization) {
+          setActiveVisualization(result.visualization);
+          blocks.unshift({ type: "visualization", payload: result.visualization });
+        }
+        appendAssistantMessage("Loaded the latest session analytics context.", blocks);
+        setOperationState({ loading: false, message: "Session analytics loaded into chat.", error: "" });
+        return;
+      }
+
+      if (kind === "reopen_latest_research") {
+        const latestResearch = artifacts.find((artifact) => artifact.kind === "research");
+        if (!latestResearch) {
+          setOperationState({ loading: false, message: "", error: "No research memory is available in this session." });
+          return;
+        }
+        const result = await executeEvolutionTool("reopen_artifact", {
+          artifact_id: latestResearch.id,
+          session_id: sessionId,
+        });
+        appendAssistantMessage(`Reopened research memory: ${latestResearch.title}`, result.render_blocks || []);
+        setOperationState({ loading: false, message: "Latest research memory reopened in chat.", error: "" });
+        return;
+      }
+
+      if (kind === "session_history") {
+        const result = await executeEvolutionTool("session_history", { session_id: sessionId });
+        const summary = [
+          `Session history: ${result.message_count} messages in "${result.title}".`,
+          "",
+          ...(result.messages || []).map((item) => `- ${item.role}: ${item.content}`),
+        ].join("\n");
+        appendAssistantMessage(summary);
+        setOperationState({ loading: false, message: "Conversation trace added to chat.", error: "" });
+      }
+    } catch (runError) {
+      setOperationState({
+        loading: false,
+        message: "",
+        error: runError.message || "Operation failed.",
+      });
+    }
   }
 
-  function subtractInputTokens(text) {
-    // Subtract input tokens when message is sent
-    const inputTokens = calculateTokenUsage(text);
-    setTokenUsage(prev => ({
-      ...prev,
-      totalTokens: prev.totalTokens + inputTokens,
-      availableTokens: Math.max(0, (prev.availableTokens || 100000) - inputTokens),
-    }));
-  }
-
-  function subtractOutputTokens(tokenCount) {
-    // Subtract output tokens as they are generated
-    setTokenUsage(prev => ({
-      ...prev,
-      outputTokens: prev.outputTokens + tokenCount,
-      totalTokens: prev.totalTokens + tokenCount,
-      availableTokens: Math.max(0, (prev.availableTokens || 100000) - tokenCount),
-    }));
-  }
-
-  function resetTokenUsage() {
-    setTokenUsage({
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      availableTokens: 100000,
-    });
-  }
-
-  /**
-   * Intelligently detect if the task requires agent mode (coding) or chat mode.
-   * Similar to how Claude Code, Copilot, and Cursor auto-detect intent.
-   */
   function detectRequiredMode(text) {
-    if (mode !== "auto") {
-      return mode;  // User explicitly selected a mode
+    return classifyTaskIntent(text, mode).useAgent ? "agent" : "chat";
+  }
+
+  async function handleStreamEvent(data, assistantIndex) {
+    if (data.type === "meta" && data.model) {
+      setActiveModel(data.model);
     }
-
-    const lower = text.toLowerCase();
-
-    // Coding/development task indicators (Agent mode)
-    const agentTriggers = [
-      // Creation tasks
-      "create", "add", "implement", "build", "develop", "generate", "write",
-      // Modification tasks
-      "change", "update", "modify", "fix", "debug", "refactor", "optimize",
-      // File operations
-      "new file", "edit file", "delete file", "create file",
-      // Code-specific
-      "function", "class", "component", "endpoint", "api", "route",
-      // Testing
-      "test", "pytest", "unit test",
-      // Installation
-      "install", "npm install", "pip install", "package", "dependency",
-      // Encryption/Security
-      "encrypt", "decrypt", "authentication", "authorization",
-      // Alerts/Notifications
-      "alert", "notification", "warning",
-      // Console
-      "console.log", "console log",
-    ];
-
-    // Check for agent triggers
-    const hasAgentTrigger = agentTriggers.some(trigger => lower.includes(trigger));
-
-    // Code patterns
-    const codePatterns = [
-      /\b(?:function|class|const|let|var|import|export|from)\s+\w/i,
-      /\b(?:def|import|from|class)\s+\w/i,  // Python
-      /(?:=>|=>\s*{|function\s*\(|\(\s*\)\s*=>)/,  // Arrow functions
-      /(?:frontend|backend|src|app|utils|components|api)\//i,  // File paths
-      /["\'][^"\']+\.(?:js|jsx|ts|tsx|py|css|html)["\']/i,  // File references
-    ];
-
-    const hasCodePattern = codePatterns.some(pattern => pattern.test(text));
-
-    // Exclude non-coding contexts
-    const excludePatterns = [
-      "what is", "explain", "tell me about", "how does", "why is",
-      "who is", "when did", "where is", "define", "describe",
-      "history of", "benefits of", "difference between",
-    ];
-
-    const isExcluded = excludePatterns.some(pattern => lower.startsWith(pattern));
-
-    // Decision logic
-    if (isExcluded) {
-      return "chat";  // Clearly a question
+    if (data.type === "meta" && data.session_id) {
+      setCurrentSessionId(data.session_id);
+      await loadArtifacts(data.session_id);
     }
-
-    if (hasAgentTrigger || hasCodePattern) {
-      return "agent";  // Coding task detected
+    if (data.type === "search" && data.log) {
+      setMessages((current) =>
+        current.map((message, index) =>
+          index === assistantIndex
+            ? { ...message, search_logs: [...(message.search_logs || []), data.log] }
+            : message,
+        ),
+      );
     }
-
-    // Check if it's a follow-up to a coding task (context-aware)
-    // This would require conversation history analysis
-
-    return "chat";  // Default to chat for general queries
+    if (data.type === "images" && data.log) {
+      setMessages((current) =>
+        current.map((message, index) =>
+          index === assistantIndex
+            ? { ...message, image_logs: [...(message.image_logs || []), data.log] }
+            : message,
+        ),
+      );
+    }
+    if (data.type === "render" && data.block) {
+      setMessages((current) =>
+        current.map((message, index) =>
+          index === assistantIndex
+            ? {
+                ...message,
+                render_blocks: [...(message.render_blocks || []), data.block],
+              }
+            : message,
+        ),
+      );
+    }
+    if (data.type === "token") {
+      setMessages((current) =>
+        current.map((message, index) =>
+          index === assistantIndex ? { ...message, content: `${message.content}${data.content}` } : message,
+        ),
+      );
+      consumeOutputTokens(data.content);
+    }
+    if (data.type === "done") {
+      await loadSessions();
+      await loadProfile();
+    }
+    if (data.type === "error") {
+      throw new Error(data.message || "Streaming failed");
+    }
   }
 
   async function handleSubmit(event) {
@@ -495,35 +580,47 @@ export default function App() {
       return;
     }
 
-    // Detect the required mode (Auto mode intelligent selection)
-    const detectedMode = detectRequiredMode(requestMessage);
+    const visualization = buildVisualizationSpec(requestMessage);
+    const visualizationArtifacts = buildVisualizationArtifacts(visualization);
+    if (visualization) {
+      setActiveVisualization(visualization);
+    }
 
-    // ✅ Subtract input tokens when sending
-    subtractInputTokens(requestMessage);
-
+    const requestMode = detectRequiredMode(requestMessage);
+    consumeInputTokens(requestMessage);
+    const assistantSeed = summarizeVisualization(visualization);
     const nextMessages = [
       ...messages,
       { role: "user", content: value || "Uploaded files", attachments: pendingAttachments },
+      {
+        role: "assistant",
+        content: assistantSeed,
+        search_logs: [],
+        image_logs: [],
+        visualization,
+        render_blocks: visualization
+          ? [{ type: "visualization", payload: visualization }, ...visualizationArtifacts]
+          : [],
+      },
     ];
-    // Draft chats send local conversation context; persisted sessions reload context from the backend.
-    const conversation = currentSessionId && currentSessionId !== DRAFT_SESSION_ID
-      ? []
-      : nextMessages.filter((message) => message.role !== "assistant" || messages.length > 1).slice(0, -1);
-    setInput("");
-    setIsLoading(true);
-    setError("");
-    const assistantIndex = nextMessages.length;
+    const assistantIndex = nextMessages.length - 1;
     const attachmentsForRequest = pendingAttachments;
+    const conversation =
+      currentSessionId && currentSessionId !== DRAFT_SESSION_ID
+        ? []
+        : nextMessages.slice(0, -2).filter((message) => message.role !== "assistant" || messages.length > 1);
+
+    setMessages(nextMessages);
     setPendingAttachments([]);
-    setMessages([
-      ...nextMessages,
-      { role: "assistant", content: "", search_logs: [], image_logs: [] },
-    ]);
+    setInput("");
+    setError("");
+    setIsLoading(true);
+    setActiveView("chat");
 
     try {
       const controller = new AbortController();
       abortRef.current = controller;
-      const response = await fetch(API_URL, {
+      const response = await fetch(api.chatStream, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -533,22 +630,17 @@ export default function App() {
           effort: responseEffort,
           attachments: attachmentsForRequest,
           conversation,
-          session_id: currentSessionId || draftContextId,
-          mode: detectedMode,  // Pass detected mode to backend
+          session_id: currentContextId(),
+          mode: requestMode,
         }),
       });
-
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error("Backend request failed");
       }
 
-      const reader = response.body?.getReader();
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-
-      if (!reader) {
-        throw new Error("Streaming is not available");
-      }
 
       while (true) {
         const { value: chunk, done } = await reader.read();
@@ -558,42 +650,32 @@ export default function App() {
         buffer += decoder.decode(chunk, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-
         for (const line of lines) {
           if (!line.trim()) {
             continue;
           }
-          // The backend streams newline-delimited JSON events.
-          const data = JSON.parse(line);
-          await handleStreamEvent(data, assistantIndex);
+          await handleStreamEvent(JSON.parse(line), assistantIndex);
         }
       }
 
       if (buffer.trim()) {
-        const data = JSON.parse(buffer);
-        await handleStreamEvent(data, assistantIndex);
+        await handleStreamEvent(JSON.parse(buffer), assistantIndex);
       }
     } catch (requestError) {
-      const aborted = requestError.name === "AbortError";
-      if (aborted) {
+      if (requestError.name === "AbortError") {
         setMessages((current) =>
           current.map((message, index) =>
-            index === assistantIndex && !message.content.trim()
-              ? { ...message, content: "Generation stopped." }
-              : message,
+            index === assistantIndex ? { ...message, content: `${message.content}\nGeneration stopped.`.trim() } : message,
           ),
         );
       } else {
-        setError(
-          "The backend is unavailable. Start FastAPI and Ollama, then try again.",
-        );
+        setError("The backend is unavailable. Start FastAPI and your local model services.");
         setMessages((current) =>
           current.map((message, index) =>
             index === assistantIndex
               ? {
                   ...message,
-                  content:
-                    "I could not reach the backend service. Verify that FastAPI is running on port 8000 and Ollama is available locally.",
+                  content: `${message.content}\nBackend connection failed. Start FastAPI on port 8000.`.trim(),
                 }
               : message,
           ),
@@ -603,20 +685,40 @@ export default function App() {
       abortRef.current = null;
       setIsLoading(false);
       await loadSessions();
-      await loadProfile();
+      await loadArtifacts(currentContextId());
     }
   }
 
-  const displayedSessions = currentSessionId === null || currentSessionId === DRAFT_SESSION_ID
-    ? [
-        {
-          id: DRAFT_SESSION_ID,
-          title: "New chat",
-          preview: "Draft session",
-        },
-        ...sessions,
-      ]
-    : sessions;
+  function stopGeneration() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsLoading(false);
+  }
+
+  function handleVoiceCommand(payload) {
+    if (payload.action === "dashboard") {
+      setActiveView("dashboard");
+      return;
+    }
+    if (payload.action === "chat") {
+      setActiveView("chat");
+      return;
+    }
+    if (payload.action === "rag_search" && payload.suggested_params.query) {
+      setInput(payload.suggested_params.query);
+      setActiveView("dashboard");
+      return;
+    }
+    if (payload.transcript) {
+      setInput(payload.transcript);
+      updateInputTokens(payload.transcript);
+    }
+  }
+
+  const displayedSessions =
+    currentSessionId === null || currentSessionId === DRAFT_SESSION_ID
+      ? [{ id: DRAFT_SESSION_ID, title: "New chat", preview: "Draft session" }, ...sessions]
+      : sessions;
 
   return (
     <ChatLayout
@@ -638,34 +740,49 @@ export default function App() {
       onMemoryTextChange={setMemoryText}
       onSaveProfile={saveProfile}
       profileSaved={profileSaved}
-      storageMode={storageMode}
-      profileStorageMode={profileStorageMode}
-    >
-      <MessageList
-        messages={messages}
-        isLoading={isLoading}
-        copiedKey={copiedKey}
-        onCopyMessage={handleCopyMessage}
-      />
-      <Composer
-        value={input}
-        onChange={(newValue) => {
-          setInput(newValue);
-          updateTokenUsageForInput(newValue);
-        }}
-        onSubmit={handleSubmit}
-        onStop={stopGeneration}
-        onUploadFiles={handleUploadFiles}
-        onRemoveAttachment={handleRemoveAttachment}
-        attachments={pendingAttachments}
-        disabled={false}
-        isLoading={isLoading}
-        isUploading={isUploading}
-        error={error}
-        mode={mode}
-        onModeChange={setMode}
-        tokenUsage={tokenUsage}
-      />
-    </ChatLayout>
+      activeView={activeView}
+      onViewChange={setActiveView}
+      chatContent={
+        <div className="chat-view">
+          <MessageList messages={messages} isLoading={isLoading} copiedKey={copiedKey} onCopyMessage={handleCopyMessage} />
+          <Composer
+            value={input}
+            onChange={(nextValue) => {
+              setInput(nextValue);
+              updateInputTokens(nextValue);
+            }}
+            onSubmit={handleSubmit}
+            onStop={stopGeneration}
+            onUploadFiles={handleUploadFiles}
+            onRemoveAttachment={(attachmentId) =>
+              setPendingAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId))
+            }
+            attachments={pendingAttachments}
+            disabled={false}
+            isLoading={isLoading}
+            isUploading={isUploading}
+            error={error}
+            mode={mode}
+            onModeChange={setMode}
+            tokenUsage={tokenUsage}
+            onVoiceCommand={handleVoiceCommand}
+          />
+        </div>
+      }
+      dashboardContent={
+        <DashboardView
+          currentSessionId={currentContextId()}
+          tools={tools}
+          capabilities={capabilities}
+          stats={dashboardStats}
+          artifacts={artifacts}
+          visualization={activeVisualization}
+          operationState={operationState}
+          onArtifactRefresh={() => loadArtifacts(currentContextId())}
+          onOpenArtifact={handleOpenArtifact}
+          onRunOperation={runDashboardOperation}
+        />
+      }
+    />
   );
 }
