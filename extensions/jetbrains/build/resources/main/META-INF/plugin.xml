@@ -1,6 +1,6 @@
 <idea-plugin>
   <version>1.0.0</version>
-  <idea-version since-build="232" until-build="261.*" />
+  <idea-version since-build="241" until-build="261.*" />
   <id>com.ise.ai.copilot</id>
   <name>ISE AI Copilot</name>
   <vendor email="support@ise-ai.com" url="https://github.com/ise-ai">ISE AI Team</vendor>

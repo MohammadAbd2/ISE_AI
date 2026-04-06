@@ -1,0 +1,96 @@
+<options>
+  <configurable id="preferences.keymap" configurable_name="Keymap">
+    <option name="code" path="ActionManager" hit="Explain Code" />
+    <option name="explain" path="ActionManager" hit="Explain Code" />
+    <option name="code" path="ActionManager" hit="Explain selected code" />
+    <option name="explain" path="ActionManager" hit="Explain selected code" />
+    <option name="selected" path="ActionManager" hit="Explain selected code" />
+    <option name="errors" path="ActionManager" hit="Fix Errors" />
+    <option name="fix" path="ActionManager" hit="Fix Errors" />
+    <option name="current" path="ActionManager" hit="Fix errors in current file" />
+    <option name="errors" path="ActionManager" hit="Fix errors in current file" />
+    <option name="file" path="ActionManager" hit="Fix errors in current file" />
+    <option name="fix" path="ActionManager" hit="Fix errors in current file" />
+    <option name="in" path="ActionManager" hit="Fix errors in current file" />
+    <option name="documentation" path="ActionManager" hit="Generate Documentation" />
+    <option name="generate" path="ActionManager" hit="Generate Documentation" />
+    <option name="generate" path="ActionManager" hit="Generate Tests" />
+    <option name="tests" path="ActionManager" hit="Generate Tests" />
+    <option name="code" path="ActionManager" hit="Generate documentation for selected code" />
+    <option name="documentation" path="ActionManager" hit="Generate documentation for selected code" />
+    <option name="for" path="ActionManager" hit="Generate documentation for selected code" />
+    <option name="generate" path="ActionManager" hit="Generate documentation for selected code" />
+    <option name="selected" path="ActionManager" hit="Generate documentation for selected code" />
+    <option name="current" path="ActionManager" hit="Generate tests for current file" />
+    <option name="file" path="ActionManager" hit="Generate tests for current file" />
+    <option name="for" path="ActionManager" hit="Generate tests for current file" />
+    <option name="generate" path="ActionManager" hit="Generate tests for current file" />
+    <option name="tests" path="ActionManager" hit="Generate tests for current file" />
+    <option name="chat" path="ActionManager" hit="Inline Chat" />
+    <option name="inline" path="ActionManager" hit="Inline Chat" />
+    <option name="chat" path="ActionManager" hit="Open Chat" />
+    <option name="open" path="ActionManager" hit="Open Chat" />
+    <option name="ai" path="ActionManager" hit="Open ISE AI Chat Panel" />
+    <option name="chat" path="ActionManager" hit="Open ISE AI Chat Panel" />
+    <option name="ise" path="ActionManager" hit="Open ISE AI Chat Panel" />
+    <option name="open" path="ActionManager" hit="Open ISE AI Chat Panel" />
+    <option name="panel" path="ActionManager" hit="Open ISE AI Chat Panel" />
+    <option name="chat" path="ActionManager" hit="Open inline chat" />
+    <option name="inline" path="ActionManager" hit="Open inline chat" />
+    <option name="open" path="ActionManager" hit="Open inline chat" />
+    <option name="code" path="ActionManager" hit="Optimize Code" />
+    <option name="optimize" path="ActionManager" hit="Optimize Code" />
+    <option name="code" path="ActionManager" hit="Optimize selected code" />
+    <option name="optimize" path="ActionManager" hit="Optimize selected code" />
+    <option name="selected" path="ActionManager" hit="Optimize selected code" />
+    <option name="code" path="ActionManager" hit="Refactor Code" />
+    <option name="refactor" path="ActionManager" hit="Refactor Code" />
+    <option name="code" path="ActionManager" hit="Refactor selected code" />
+    <option name="refactor" path="ActionManager" hit="Refactor selected code" />
+    <option name="selected" path="ActionManager" hit="Refactor selected code" />
+    <option name="ai" path="ActionManager" hit="Trigger AI Completion" />
+    <option name="completion" path="ActionManager" hit="Trigger AI Completion" />
+    <option name="trigger" path="ActionManager" hit="Trigger AI Completion" />
+    <option name="ai" path="ActionManager" hit="Trigger AI code completion" />
+    <option name="code" path="ActionManager" hit="Trigger AI code completion" />
+    <option name="completion" path="ActionManager" hit="Trigger AI code completion" />
+    <option name="trigger" path="ActionManager" hit="Trigger AI code completion" />
+  </configurable>
+  <configurable id="com.ise.ai.copilot.settings.ISEAIConfigurable" configurable_name="ISE AI Copilot">
+    <option name="api" hit="API Key (optional):" />
+    <option name="key" hit="API Key (optional):" />
+    <option name="optional" hit="API Key (optional):" />
+    <option name="enable" hit="Enable Multi-Agent Orchestration" />
+    <option name="multi-agent" hit="Enable Multi-Agent Orchestration" />
+    <option name="orchestration" hit="Enable Multi-Agent Orchestration" />
+    <option name="ai" hit="ISE AI Copilot" />
+    <option name="copilot" hit="ISE AI Copilot" />
+    <option name="ise" hit="ISE AI Copilot" />
+    <option name="high" hit="Level (low/medium/high):" />
+    <option name="level" hit="Level (low/medium/high):" />
+    <option name="low" hit="Level (low/medium/high):" />
+    <option name="medium" hit="Level (low/medium/high):" />
+    <option name="agent" hit="Mode (auto/chat/agent):" />
+    <option name="auto" hit="Mode (auto/chat/agent):" />
+    <option name="chat" hit="Mode (auto/chat/agent):" />
+    <option name="mode" hit="Mode (auto/chat/agent):" />
+    <option name="4" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="5" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="claude" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="default" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="haiku" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="model" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="server" hit="Server URL:" />
+    <option name="url" hit="Server URL:" />
+    <option name="advanced" hit="Use Advanced Context Analysis" />
+    <option name="analysis" hit="Use Advanced Context Analysis" />
+    <option name="context" hit="Use Advanced Context Analysis" />
+    <option name="use" hit="Use Advanced Context Analysis" />
+    <option name="agent" hit="agent" />
+    <option name="auto" hit="auto" />
+    <option name="chat" hit="chat" />
+    <option name="high" hit="high" />
+    <option name="low" hit="low" />
+    <option name="medium" hit="medium" />
+  </configurable>
+</options>
