@@ -24,7 +24,7 @@ import javax.swing.text.StyleConstants
 
 class ChatPanel(private val project: Project) {
     private val service = ISEAIService.getInstance()
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     val mainPanel: JPanel = JPanel(BorderLayout())
     private lateinit var chatScrollPane: JBScrollPane
@@ -475,41 +475,56 @@ class ChatPanel(private val project: Project) {
 
     private fun appendMessage(role: String, content: String) {
         val messagePanel = JPanel(BorderLayout()).apply {
-            border = CompoundBorder(
-                LineBorder(
-                    when (role) {
-                        "user" -> JBColor.BLUE
-                        "assistant" -> JBColor.GREEN
-                        "info" -> Color(100, 150, 200)
-                        "error" -> JBColor.RED
-                        else -> JBColor.border()
-                    },
-                    1
-                ),
-                EmptyBorder(8, 8, 8, 8)
-            )
-            background = when (role) {
-                "user" -> Color(225, 240, 255)
-                "assistant" -> Color(225, 250, 225)
-                "info" -> Color(230, 240, 250)
-                "error" -> Color(255, 230, 230)
+            val bgColor = when (role) {
+                "user" -> Color(13, 110, 253)
+                "assistant" -> Color(108, 117, 125)
+                "info" -> Color(23, 162, 184)
+                "error" -> Color(220, 53, 69)
                 else -> JBColor.background()
             }
+            background = bgColor
+            border = EmptyBorder(10, 12, 10, 12)
             maximumSize = Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE)
         }
 
-        val editorPane = MessageFormatter.createHTMLEditorPane(content)
-        editorPane.background = messagePanel.background
-        editorPane.foreground = JBColor.foreground()
-        
-        val scrollPane = JScrollPane(editorPane).apply {
-            border = null
-            preferredSize = Dimension(400, 100)
+        val headerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 5, 0)).apply {
+            background = messagePanel.background
+            add(JLabel(
+                when (role) {
+                    "user" -> "👤 You"
+                    "assistant" -> "🤖 Assistant"
+                    "info" -> "ℹ️ Info"
+                    "error" -> "❌ Error"
+                    else -> "Message"
+                }
+            ).apply {
+                foreground = Color.WHITE
+                font = font.deriveFont(Font.BOLD, 11f)
+            })
         }
 
-        messagePanel.add(scrollPane, BorderLayout.CENTER)
+        val contentPanel = JPanel(BorderLayout()).apply {
+            background = messagePanel.background
+            
+            val editorPane = MessageFormatter.createHTMLEditorPane(content)
+            editorPane.apply {
+                background = messagePanel.background
+                foreground = Color.WHITE
+                isOpaque = true
+            }
+            
+            val scrollPane = JScrollPane(editorPane).apply {
+                border = null
+                preferredSize = Dimension(400, 100)
+                viewport.background = messagePanel.background
+            }
+            add(scrollPane, BorderLayout.CENTER)
+        }
+
+        messagePanel.add(headerPanel, BorderLayout.NORTH)
+        messagePanel.add(contentPanel, BorderLayout.CENTER)
         chatContainer.add(messagePanel)
-        chatContainer.add(Box.createVerticalStrut(5))
+        chatContainer.add(Box.createVerticalStrut(8))
         
         // Auto-scroll to bottom
         SwingUtilities.invokeLater {
@@ -519,21 +534,34 @@ class ChatPanel(private val project: Project) {
 
     private fun streamAssistantChunk(chunk: String) {
         if (currentMessageLabel == null) {
+            val bgColor = Color(108, 117, 125)
             val panel = JPanel(BorderLayout()).apply {
-                border = CompoundBorder(
-                    LineBorder(JBColor.GREEN, 1),
-                    EmptyBorder(8, 8, 8, 8)
-                )
-                background = Color(225, 250, 225)
+                background = bgColor
+                border = EmptyBorder(10, 12, 10, 12)
                 maximumSize = Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE)
             }
             
+            val headerPanel = JPanel(FlowLayout(FlowLayout.LEFT, 5, 0)).apply {
+                background = bgColor
+                add(JLabel("🤖 Assistant").apply {
+                    foreground = Color.WHITE
+                    font = font.deriveFont(Font.BOLD, 11f)
+                })
+            }
+            
             currentMessageLabel = MessageFormatter.createHTMLEditorPane(chunk)
-            currentMessageLabel!!.background = panel.background
+            currentMessageLabel!!.apply {
+                background = bgColor
+                foreground = Color.WHITE
+                isOpaque = true
+            }
             
             val scrollPane = JScrollPane(currentMessageLabel!!).apply {
                 border = null
+                viewport.background = bgColor
             }
+            
+            panel.add(headerPanel, BorderLayout.NORTH)
             panel.add(scrollPane, BorderLayout.CENTER)
             chatContainer.add(panel)
         } else {

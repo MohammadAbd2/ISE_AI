@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
 Created-By: Gradle 7.6.4
-Build-JVM: 17.0.18 (Debian 17.0.18+8-Debian-1deb12u1)
+Build-JVM: 25.0.2 (Debian 25.0.2+10-Debian-1deb13u2)
 Version: 1.0.0
 Build-Plugin: Gradle IntelliJ Plugin
 Build-Plugin-Version: 1.13.3

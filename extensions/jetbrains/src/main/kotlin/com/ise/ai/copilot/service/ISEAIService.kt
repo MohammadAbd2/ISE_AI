@@ -157,6 +157,7 @@ Be concise but thorough. Format code blocks with proper syntax highlighting."""
 
                 val reader = BufferedReader(InputStreamReader(response.body?.byteStream()))
                 val fullResponse = StringBuilder()
+                var receivedData = false
                 
                 reader.useLines { lines ->
                     lines.forEach { line ->
@@ -166,21 +167,31 @@ Be concise but thorough. Format code blocks with proper syntax highlighting."""
                             val data = mapper.readValue<Map<String, Any>>(line)
                             when (data["type"]) {
                                 "token" -> {
-                                    val content = data["content"] as String
-                                    fullResponse.append(content)
-                                    onChunk(content)
+                                    val content = (data["content"] as? String) ?: ""
+                                    if (content.isNotEmpty()) {
+                                        receivedData = true
+                                        fullResponse.append(content)
+                                        onChunk(content)
+                                    }
                                 }
                                 "error" -> {
-                                    throw Exception(data["message"] as String)
+                                    throw Exception((data["message"] as? String) ?: "Unknown error from backend")
                                 }
                                 "done" -> {
                                     return@forEach
                                 }
                             }
                         } catch (e: Exception) {
-                            // Skip invalid JSON
+                            if (e.message?.contains("Unknown error from backend") == true) {
+                                throw e
+                            }
+                            // Skip invalid JSON lines
                         }
                     }
+                }
+
+                if (!receivedData && fullResponse.toString().isEmpty()) {
+                    throw Exception("No response received from backend. Please check if the backend is running.")
                 }
 
                 fullResponse.toString()

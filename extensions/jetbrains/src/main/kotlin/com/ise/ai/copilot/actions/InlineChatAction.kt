@@ -46,7 +46,7 @@ class InlineChatAction : AnAction() {
             
             // Send request to service
             val service = ISEAIService.getInstance()
-            CoroutineScope(Dispatchers.Main).launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 try {
                     val response = withContext(Dispatchers.IO) {
                         service.sendRequest(message, context)

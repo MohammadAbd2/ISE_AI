@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { VoiceCommandButton } from "../hooks/useVoiceCommand";
+import { VoiceInputButton } from "./VoiceInput";
 
 export default function Composer({
   value,
@@ -33,6 +33,10 @@ export default function Composer({
       await onUploadFiles(files);
     }
     event.target.value = "";
+  }
+
+  function handleVoiceText(transcribedText) {
+    onChange(value + (value && !value.endsWith(" ") ? " " : "") + transcribedText);
   }
 
   return (
@@ -84,12 +88,12 @@ export default function Composer({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask, upload files, request code changes, or describe data for a chart or 3D map..."
+          placeholder="Ask, upload files, request code changes, or describe data for a chart or 3D map... (use 🎙️ for voice input)"
           rows={4}
           disabled={disabled}
         />
         <div className="composer-inline-actions">
-          <VoiceCommandButton onCommand={onVoiceCommand} />
+          <VoiceInputButton onTextInsert={handleVoiceText} />
           {isLoading ? (
             <button type="button" className="send-button stop" onClick={onStop}>
               Stop
@@ -98,6 +102,7 @@ export default function Composer({
             <button type="submit" className="send-button" disabled={disabled || (!value.trim() && attachments.length === 0)}>
               Send
             </button>
+          )}
           )}
         </div>
       </div>

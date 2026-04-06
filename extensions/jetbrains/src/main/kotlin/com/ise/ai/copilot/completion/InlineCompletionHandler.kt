@@ -13,7 +13,7 @@ import java.awt.Color
  */
 class InlineCompletionHandler(private val project: Project) {
     private val service = ISEAIService.getInstance()
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     fun getCompletion(editor: Editor, offset: Int, context: String): String? {
         var result: String? = null
