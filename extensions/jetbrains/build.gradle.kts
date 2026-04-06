@@ -1,48 +1,50 @@
 plugins {
-    id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '1.8.0'
-    id 'org.jetbrains.intellij' version '1.13.0'
+    id("java")
+    id("org.jetbrains.kotlin.jvm") version "1.9.23"
+    id("org.jetbrains.intellij") version "1.17.2"
 }
 
-group 'com.ise.ai.copilot'
-version '1.0.0'
+group = "com.ise.ai.copilot"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
 dependencies {
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
-    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
-    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0'
-    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0'
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.8.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.0")
 }
 
 intellij {
-    version.set('2023.1')
-    type.set('IC') // IntelliJ Community
-    plugins.set(listOf('com.intellij.modules.lang'))
+    version.set("2024.1")
+    type.set("IC")
+    plugins.set(listOf())
 }
 
-patchPluginXml {
-    sinceBuild.set('231')
-    untilBuild.set('241.*')
-}
+tasks {
+    patchPluginXml {
+        sinceBuild.set("232")
+        untilBuild.set("261.*")
+    }
 
-signPlugin {
-    certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
-    privateKey.set(System.getenv("PRIVATE_KEY"))
-    password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
-}
+    compileKotlin {
+        kotlinOptions.jvmTarget = "17"
+        kotlinOptions.freeCompilerArgs = listOf("-Xjvm-default=all")
+    }
 
-publishPlugin {
-    token.set(System.getenv("PUBLISH_TOKEN"))
-}
+    compileTestKotlin {
+        kotlinOptions.jvmTarget = "17"
+    }
 
-compileKotlin {
-    kotlinOptions.jvmTarget = "17"
-}
-
-compileTestKotlin {
-    kotlinOptions.jvmTarget = "17"
+    signPlugin { enabled = false }
+    publishPlugin { enabled = false }
 }

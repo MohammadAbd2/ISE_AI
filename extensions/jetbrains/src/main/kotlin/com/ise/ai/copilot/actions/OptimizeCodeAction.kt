@@ -35,7 +35,7 @@ class OptimizeCodeAction : AnAction() {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val response = withContext(Dispatchers.IO) {
-                    service.sendRequest(prompt, context).await()
+                    service.sendRequest(prompt, context)
                 }
                 Messages.showInfoMessage(project, response, "Optimized Code")
             } catch (ex: Exception) {

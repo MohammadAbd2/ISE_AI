@@ -11,7 +11,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.util.concurrent.CompletableFuture
 
 data class ChatMessage(
     val role: String,
@@ -46,7 +45,9 @@ class ISEAIService {
 
     var serverUrl: String = "http://localhost:8000"
     var apiKey: String = ""
-    var model: String = ""
+    var model: String = "llama3"
+    var mode: String = "auto"
+    var level: String = "medium"
     var enableMultiAgent: Boolean = true
 
     companion object {
@@ -56,27 +57,27 @@ class ISEAIService {
         }
     }
 
-    fun sendRequest(message: String, context: Map<String, Any?>? = null): CompletableFuture<String> {
-        return scope.future {
-            try {
-                val requestBody = mapper.writeValueAsString(
-                    mapOf(
-                        "description" to message,
-                        "multi_agent" to enableMultiAgent,
-                        "context" to (context ?: emptyMap<String, Any?>())
-                    )
+    suspend fun sendRequest(message: String, context: Map<String, Any?>? = null): String {
+        return try {
+            val requestBody = mapper.writeValueAsString(
+                mapOf(
+                    "description" to message,
+                    "multi_agent" to enableMultiAgent,
+                    "context" to (context ?: emptyMap<String, Any?>())
                 )
+            )
 
-                val request = Request.Builder()
-                    .url("$serverUrl/api/agents/execute")
-                    .post(requestBody.toRequestBody("application/json".toMediaType()))
-                    .apply {
-                        if (apiKey.isNotEmpty()) {
-                            header("Authorization", "Bearer $apiKey")
-                        }
+            val request = Request.Builder()
+                .url("$serverUrl/api/agents/execute")
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .apply {
+                    if (apiKey.isNotEmpty()) {
+                        header("Authorization", "Bearer $apiKey")
                     }
-                    .build()
+                }
+                .build()
 
+            withContext(Dispatchers.IO) {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         throw Exception("HTTP error: ${response.code}")
@@ -87,25 +88,30 @@ class ISEAIService {
                     
                     completionResponse.result ?: "No response"
                 }
-            } catch (e: Exception) {
-                throw Exception("Error sending request: ${e.message}", e)
             }
+        } catch (e: Exception) {
+            throw Exception("Error sending request: ${e.message}", e)
         }
     }
 
-    fun streamRequest(
+    suspend fun streamRequest(
         message: String, 
         context: Map<String, Any?>? = null,
+        model: String = "",
+        mode: String = "auto",
+        level: String = "medium",
         onChunk: (String) -> Unit
-    ): CompletableFuture<String> {
-        return scope.future {
+    ): String {
+        return withContext(Dispatchers.IO) {
             currentJob = coroutineContext[Job]
             
             try {
                 val requestBody = mapper.writeValueAsString(
                     mapOf(
                         "message" to message,
-                        "model" to (model.ifEmpty { null }),
+                        "model" to (model.ifEmpty { this@ISEAIService.model }),
+                        "mode" to mode,
+                        "level" to level,
                         "multi_agent" to enableMultiAgent,
                         "context" to (context ?: emptyMap<String, Any?>())
                     )

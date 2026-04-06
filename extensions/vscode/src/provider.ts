@@ -61,9 +61,9 @@ export class ISEAIProvider {
       }
 
       const data = await response.json();
-      return data.result || 'No response';
+      return (data as any).result || 'No response';
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if ((error as any).name === 'AbortError') {
         return 'Request aborted';
       }
       console.error('Error sending request:', error);
@@ -99,7 +99,7 @@ export class ISEAIProvider {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const reader = response.body?.getReader();
+      const reader = (response.body as any)?.getReader?.();
       if (!reader) {
         throw new Error('No response body');
       }
@@ -117,25 +117,25 @@ export class ISEAIProvider {
         for (const line of lines) {
           if (!line.trim()) continue;
           
-          try {
-            const data = JSON.parse(line);
-            if (data.type === 'token') {
-              fullResponse += data.content;
-              onChunk?.(data.content);
-            } else if (data.type === 'error') {
-              throw new Error(data.message);
-            } else if (data.type === 'done') {
-              break;
-            }
-          } catch (e) {
-            // Skip invalid JSON
-          }
+           try {
+             const data = JSON.parse(line);
+             if (data.type === 'token') {
+               fullResponse += data.content;
+               onChunk?.(data.content);
+             } else if (data.type === 'error') {
+               throw new Error((data as any).message);
+             } else if (data.type === 'done') {
+               break;
+             }
+           } catch (e) {
+             // Skip invalid JSON
+           }
         }
       }
 
       return fullResponse;
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if ((error as any).name === 'AbortError') {
         return 'Request aborted';
       }
       console.error('Error streaming request:', error);
@@ -171,7 +171,7 @@ export class ISEAIProvider {
       }
 
       const data = await response.json();
-      return data.message || null;
+      return (data as any).message || null;
     } catch (error) {
       console.error('Error getting completion:', error);
       return null;

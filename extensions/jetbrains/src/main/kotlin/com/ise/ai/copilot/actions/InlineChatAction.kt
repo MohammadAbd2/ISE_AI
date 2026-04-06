@@ -49,7 +49,7 @@ class InlineChatAction : AnAction() {
             CoroutineScope(Dispatchers.Main).launch {
                 try {
                     val response = withContext(Dispatchers.IO) {
-                        service.sendRequest(message, context).await()
+                        service.sendRequest(message, context)
                     }
                     Messages.showInfoMessage(project, response, "ISE AI Response")
                 } catch (ex: Exception) {
