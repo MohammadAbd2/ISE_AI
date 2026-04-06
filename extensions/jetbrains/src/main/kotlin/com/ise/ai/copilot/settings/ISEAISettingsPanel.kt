@@ -14,7 +14,7 @@ class ISEAISettingsPanel {
     }
     val apiKey = JBTextField()
     val model = JBTextField().apply {
-        text = "llama3"
+        text = "claude-haiku-4.5"
     }
     val mode = JComboBox(arrayOf("auto", "chat", "agent")).apply {
         selectedItem = "auto"
@@ -25,15 +25,19 @@ class ISEAISettingsPanel {
     val enableMultiAgent = JBCheckBox("Enable Multi-Agent Orchestration").apply {
         isSelected = true
     }
+    val useAdvancedContext = JBCheckBox("Use Advanced Context Analysis").apply {
+        isSelected = true
+    }
 
     init {
         panel = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Server URL:"), serverUrl, 1, false)
             .addLabeledComponent(JBLabel("API Key (optional):"), apiKey, 1, false)
-            .addLabeledComponent(JBLabel("Model (default: llama3):"), model, 1, false)
+            .addLabeledComponent(JBLabel("Model (default: Claude Haiku 4.5):"), model, 1, false)
             .addLabeledComponent(JBLabel("Mode (auto/chat/agent):"), mode, 1, false)
             .addLabeledComponent(JBLabel("Level (low/medium/high):"), level, 1, false)
             .addComponent(enableMultiAgent, 1)
+            .addComponent(useAdvancedContext, 1)
             .addComponentFillVertically(JPanel(), 0)
             .panel
     }
