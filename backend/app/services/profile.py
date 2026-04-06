@@ -7,7 +7,7 @@ import threading
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
-from backend.app.core.config import settings
+from app.core.config import settings
 
 
 PROFILE_ID = "assistant_profile"

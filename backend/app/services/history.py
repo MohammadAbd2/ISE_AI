@@ -9,8 +9,8 @@ from bson.errors import InvalidId
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
-from backend.app.core.config import settings
-from backend.app.schemas.chat import ChatAttachment, ChatMessage, ImageIntelLog, RenderBlock, WebSearchLog
+from app.core.config import settings
+from app.schemas.chat import ChatAttachment, ChatMessage, ImageIntelLog, RenderBlock, WebSearchLog
 
 
 def _utc_now() -> datetime:

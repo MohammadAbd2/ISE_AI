@@ -12,8 +12,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 
-from backend.app.services.self_learning import get_learning_system, SelfLearningSystem
-from backend.app.services.planning_agent import get_planning_agent, AutonomousPlanningAgent
+from app.services.self_learning import get_learning_system, SelfLearningSystem
+from app.services.planning_agent import get_planning_agent, AutonomousPlanningAgent
 
 
 router = APIRouter()

@@ -18,12 +18,12 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 
-from backend.app.services.terminal import get_terminal_integration
-from backend.app.services.git_integration import get_git_integration
-from backend.app.services.enhanced_rag import get_enhanced_rag_context
-from backend.app.services.confirmation import get_confirmation_manager, ConfirmationStatus
-from backend.app.services.style_learner import get_style_learner
-from backend.app.core.config import settings
+from app.services.terminal import get_terminal_integration
+from app.services.git_integration import get_git_integration
+from app.services.enhanced_rag import get_enhanced_rag_context
+from app.services.confirmation import get_confirmation_manager, ConfirmationStatus
+from app.services.style_learner import get_style_learner
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -264,7 +264,7 @@ async def learn_from_codebase():
 @router.post("/api/files/operation")
 async def file_operation(request: FileOperationRequest):
     """Perform file operations (read, write, delete, move)."""
-    from backend.app.services.autonomous_agent import get_autonomous_agent
+    from app.services.autonomous_agent import get_autonomous_agent
     
     agent = get_autonomous_agent()
     
@@ -305,7 +305,7 @@ async def file_operation(request: FileOperationRequest):
 @router.post("/api/code/review")
 async def code_review(request: CodeReviewRequest):
     """Get AI-powered code review."""
-    from backend.app.services.chat import get_chat_service
+    from app.services.chat import get_chat_service
     
     chat_service = get_chat_service()
     
@@ -325,7 +325,7 @@ Code:
 
 Provide a detailed review with specific suggestions."""
 
-    from backend.app.models.message import Message
+    from app.models.message import Message
     messages = [Message(role="user", content=review_prompt)]
     
     try:
@@ -417,7 +417,7 @@ async def project_search_replace(
     dry_run: bool = True
 ):
     """Search and replace across project."""
-    from backend.app.services.autonomous_agent import get_autonomous_agent
+    from app.services.autonomous_agent import get_autonomous_agent
     
     agent = get_autonomous_agent()
     
@@ -461,9 +461,9 @@ async def project_search_replace(
 @router.post("/api/cache/clear")
 async def clear_cache():
     """Clear various caches."""
-    from backend.app.services.enhanced_rag import _rag_context
-    from backend.app.services.style_learner import _style_learner
-    from backend.app.services.confirmation import _confirmation_manager
+    from app.services.enhanced_rag import _rag_context
+    from app.services.style_learner import _style_learner
+    from app.services.confirmation import _confirmation_manager
     
     cleared = []
     
@@ -485,7 +485,7 @@ async def clear_cache():
 @router.get("/api/stats")
 async def get_stats():
     """Get system statistics."""
-    from backend.app.services.enhanced_rag import _rag_context
+    from app.services.enhanced_rag import _rag_context
     
     stats = {
         "rag_indexed_files": len(_rag_context.index) if _rag_context else 0,

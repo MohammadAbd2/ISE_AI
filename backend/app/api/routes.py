@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends
 from fastapi import HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
 
-from backend.app.core.config import settings
-from backend.app.schemas.chat import (
+from app.core.config import settings
+from app.schemas.chat import (
     AIProfileResponse,
     AIProfileUpdateRequest,
     ChatRequest,
@@ -19,13 +19,13 @@ from backend.app.schemas.chat import (
     ArtifactSummary,
     SessionAnalyticsResponse,
 )
-from backend.app.services.artifacts import ArtifactService, get_artifact_service
-from backend.app.services.agent import ChatAgent
-from backend.app.services.chat import ChatService, get_chat_service
-from backend.app.services.documents import DocumentService, get_document_service
-from backend.app.services.history import HistoryService, get_history_service
-from backend.app.services.profile import ProfileService, get_profile_service
-from backend.app.services.session_analytics import build_session_analytics_payload
+from app.services.artifacts import ArtifactService, get_artifact_service
+from app.services.agent import ChatAgent
+from app.services.chat import ChatService, get_chat_service
+from app.services.documents import DocumentService, get_document_service
+from app.services.history import HistoryService, get_history_service
+from app.services.profile import ProfileService, get_profile_service
+from app.services.session_analytics import build_session_analytics_payload
 
 
 router = APIRouter()

@@ -1,4 +1,4 @@
-from backend.app.schemas.chat import RenderBlock
+from app.schemas.chat import RenderBlock
 
 
 def build_session_analytics_payload(session: dict | None, artifacts: list[dict]) -> dict:

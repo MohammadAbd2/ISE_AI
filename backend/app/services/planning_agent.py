@@ -18,7 +18,7 @@ from typing import Any, Callable, Optional
 
 import aiofiles
 
-from backend.app.services.intelligent_coding_agent import (
+from app.services.intelligent_coding_agent import (
     IntelligentCodingAgent,
     get_intelligent_coding_agent,
 )

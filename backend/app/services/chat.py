@@ -1,10 +1,10 @@
 from functools import lru_cache
 from typing import AsyncIterator
 
-from backend.app.core.config import settings
-from backend.app.models.message import Message
-from backend.app.providers.base import LLMProvider
-from backend.app.providers.ollama import OllamaProvider
+from app.core.config import settings
+from app.models.message import Message
+from app.providers.base import LLMProvider
+from app.providers.ollama import OllamaProvider
 
 
 class ChatService:

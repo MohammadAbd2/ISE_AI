@@ -25,7 +25,7 @@ from typing import Optional
 
 import httpx
 
-from backend.app.core.config import settings
+from app.core.config import settings
 
 
 class DevelopmentStepStatus(str, Enum):
@@ -320,7 +320,7 @@ class AutonomousDeveloper:
             progress.overall_status = "completed"
             
             # Register the capability as available
-            from backend.app.services.capability_registry import (
+            from app.services.capability_registry import (
                 CapabilityRegistry, 
                 Capability, 
                 CapabilityStatus
@@ -775,7 +775,7 @@ import base64
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.app.services.image_generation import generate_image
+from app.services.image_generation import generate_image
 
 
 router = APIRouter(prefix="/api/images", tags=["images"])
@@ -871,7 +871,7 @@ async def generate_video_endpoint(request: VideoGenerationRequest):
     """Generate a video from text prompt or image."""
     try:
         # Import here to avoid circular imports
-        from backend.app.services.video_generation import (
+        from app.services.video_generation import (
             get_video_service,
         )
         

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from backend.app.services.tool_executor import ToolExecutor
+from app.services.tool_executor import ToolExecutor
 
 
 @dataclass

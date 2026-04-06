@@ -5,21 +5,21 @@ Provides endpoints for capability discovery, evolution status, logs, and rollbac
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from backend.app.services.backup import BackupManager, get_backup_manager
-from backend.app.services.capability_registry import (
+from app.services.backup import BackupManager, get_backup_manager
+from app.services.capability_registry import (
     CapabilityRegistry,
     get_capability_registry,
 )
-from backend.app.services.evolution_agent import EvolutionAgent, get_evolution_agent
-from backend.app.services.evolution_logger import (
+from app.services.evolution_agent import EvolutionAgent, get_evolution_agent
+from app.services.evolution_logger import (
     EvolutionLogger,
     get_evolution_logger,
 )
-from backend.app.services.permission_manager import (
+from app.services.permission_manager import (
     PermissionManager,
     get_permission_manager,
 )
-from backend.app.services.dynamic_tool_registry import (
+from app.services.dynamic_tool_registry import (
     DynamicToolRegistry,
     get_dynamic_tool_registry,
 )

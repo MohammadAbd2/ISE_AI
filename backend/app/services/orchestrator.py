@@ -3,21 +3,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from backend.app.schemas.chat import ChatAttachment, ImageIntelLog, WebSearchLog
-from backend.app.services.documents import DocumentService, get_document_service
-from backend.app.services.image_intel import ImageIntelService, get_image_intel_service
-from backend.app.services.sandbox import SandboxService, get_sandbox_service
-from backend.app.services.search import SearchService, get_search_service
-from backend.app.services.tools import AgentToolbox
-from backend.app.services.url_content import UrlContentService, get_url_content_service
-from backend.app.services.video_intel import VideoGenService, get_video_gen_service
-from backend.app.services.intent_classifier import get_intent_classifier
-from backend.app.services.artifacts import get_artifact_service
-from backend.app.services.dynamic_tool_registry import get_dynamic_tool_registry
+from app.schemas.chat import ChatAttachment, ImageIntelLog, WebSearchLog
+from app.services.documents import DocumentService, get_document_service
+from app.services.image_intel import ImageIntelService, get_image_intel_service
+from app.services.sandbox import SandboxService, get_sandbox_service
+from app.services.search import SearchService, get_search_service
+from app.services.tools import AgentToolbox
+from app.services.url_content import UrlContentService, get_url_content_service
+from app.services.video_intel import VideoGenService, get_video_gen_service
+from app.services.intent_classifier import get_intent_classifier
+from app.services.artifacts import get_artifact_service
+from app.services.dynamic_tool_registry import get_dynamic_tool_registry
 
 # Try to import image generation service (may not exist yet)
 try:
-    from backend.app.services.image_generation import generate_image as generate_image_service
+    from app.services.image_generation import generate_image as generate_image_service
     IMAGE_GEN_AVAILABLE = True
 except ImportError:
     IMAGE_GEN_AVAILABLE = False
@@ -297,8 +297,8 @@ class CodingAgent:
     name = "coding-agent"
 
     def __init__(self) -> None:
-        from backend.app.services.intelligent_coding_agent import get_intelligent_coding_agent
-        from backend.app.services.planning_agent import get_planning_agent
+        from app.services.intelligent_coding_agent import get_intelligent_coding_agent
+        from app.services.planning_agent import get_planning_agent
         self.coding_agent = get_intelligent_coding_agent()
         self.planning_agent = get_planning_agent()
         self.intent_classifier = get_intent_classifier()
@@ -615,7 +615,7 @@ class ImageGenerationAgent:
     def __init__(self) -> None:
         # Check if capability is available
         try:
-            from backend.app.services.capability_registry import get_capability_registry
+            from app.services.capability_registry import get_capability_registry
             registry = get_capability_registry()
             self.capability_available = registry.has_capability("image_generation")
         except Exception:

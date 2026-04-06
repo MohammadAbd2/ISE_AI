@@ -9,14 +9,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.app.services.multi_agent_orchestrator import (
+from app.services.multi_agent_orchestrator import (
     get_multi_agent_orchestrator,
     MultiAgentOrchestrator,
     AgentRole,
     AgentPriority,
     AgentTask,
 )
-from backend.app.services.self_development_agent import get_self_development_agent
+from app.services.self_development_agent import get_self_development_agent
 
 
 router = APIRouter()
@@ -193,7 +193,7 @@ async def self_improve(
     Request the AI to improve itself by adding new capabilities.
     """
     try:
-        from backend.app.services.self_development_agent import SelfImprovementTask
+        from app.services.self_development_agent import SelfImprovementTask
         from datetime import UTC, datetime
         
         dev_agent = get_self_development_agent()

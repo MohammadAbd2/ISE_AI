@@ -3,8 +3,8 @@ import asyncio
 import json
 from typing import AsyncIterator
 
-from backend.app.models.message import Message
-from backend.app.schemas.chat import (
+from app.models.message import Message
+from app.schemas.chat import (
     ChatAttachment,
     ChatMessage,
     ChatRequest,
@@ -12,28 +12,28 @@ from backend.app.schemas.chat import (
     ImageIntelLog,
     WebSearchLog,
 )
-from backend.app.services.chat import ChatService
-from backend.app.services.history import HistoryService
-from backend.app.services.orchestrator import get_multi_agent_orchestrator
-from backend.app.services.profile import (
+from app.services.chat import ChatService
+from app.services.history import HistoryService
+from app.services.orchestrator import get_multi_agent_orchestrator
+from app.services.profile import (
     ProfileService,
     extract_helpful_memory,
     is_confirmation,
     is_rejection,
     parse_memory_intent,
 )
-from backend.app.services.tools import AgentToolbox
-from backend.app.services.capability_gap_detector import (
+from app.services.tools import AgentToolbox
+from app.services.capability_gap_detector import (
     CapabilityGapDetector,
     get_capability_gap_detector,
 )
-from backend.app.services.evolution_session import get_evolution_session_manager
-from backend.app.services.autonomous_developer import (
+from app.services.evolution_session import get_evolution_session_manager
+from app.services.autonomous_developer import (
     AutonomousDeveloper,
     get_autonomous_developer,
 )
-from backend.app.services.self_learning import get_learning_system
-from backend.app.services.intent_classifier import get_intent_classifier
+from app.services.self_learning import get_learning_system
+from app.services.intent_classifier import get_intent_classifier
 
 
 @dataclass(slots=True)
@@ -223,7 +223,7 @@ class ChatAgent:
             gap = gaps[0]
             
             # Check if capability is now available (was just developed)
-            from backend.app.services.capability_registry import get_capability_registry
+            from app.services.capability_registry import get_capability_registry
             registry = get_capability_registry()
             if registry.has_capability(gap.capability_name):
                 # Capability is available, let the orchestrator handle it

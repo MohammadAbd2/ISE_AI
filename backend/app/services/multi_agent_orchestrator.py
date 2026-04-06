@@ -14,7 +14,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 from pathlib import Path
 
-from backend.app.services.orchestrator import (
+from app.services.orchestrator import (
     OrchestratorResult,
     UtilityAgent,
     DocumentAgent,
@@ -27,11 +27,11 @@ from backend.app.services.orchestrator import (
     VideoGenerationAgent,
     ImageGenerationAgent,
 )
-from backend.app.services.planning_agent import get_planning_agent
-from backend.app.services.intelligent_coding_agent import get_intelligent_coding_agent
-from backend.app.services.intent_classifier import get_intent_classifier
-from backend.app.services.artifacts import get_artifact_service
-from backend.app.services.self_development_agent import get_self_development_agent, SelfImprovementTask
+from app.services.planning_agent import get_planning_agent
+from app.services.intelligent_coding_agent import get_intelligent_coding_agent
+from app.services.intent_classifier import get_intent_classifier
+from app.services.artifacts import get_artifact_service
+from app.services.self_development_agent import get_self_development_agent, SelfImprovementTask
 
 
 class AgentRole(str, Enum):
@@ -248,8 +248,8 @@ class ResearchAgentWrapper(BaseAgent):
     
     def __init__(self):
         super().__init__("research-agent", AgentRole.RESEARCHER)
-        from backend.app.services.orchestrator import ResearchAgent
-        from backend.app.services.search import get_search_service
+        from app.services.orchestrator import ResearchAgent
+        from app.services.search import get_search_service
         self.research_agent = ResearchAgent(get_search_service())
         self.add_capability(AgentCapability(
             name="web-research",
@@ -330,7 +330,7 @@ class ReviewAgent(BaseAgent):
     
     async def _review_code(self, code: str, context: dict) -> dict:
         """Perform code review using LLM."""
-        from backend.app.services.chat import get_chat_service
+        from app.services.chat import get_chat_service
         
         review_prompt = f"""Review the following code for:
 1. Code quality and readability
@@ -406,7 +406,7 @@ class TestingAgent(BaseAgent):
     
     async def _generate_tests(self, code: str, file_path: str) -> str:
         """Generate tests for the given code."""
-        from backend.app.services.chat import get_chat_service
+        from app.services.chat import get_chat_service
         
         test_prompt = f"""Generate comprehensive unit tests for the following code.
 File: {file_path}
@@ -477,7 +477,7 @@ class DocumentationAgent(BaseAgent):
     
     async def _generate_documentation(self, code: str, project_context: dict, request: str) -> str:
         """Generate documentation."""
-        from backend.app.services.chat import get_chat_service
+        from app.services.chat import get_chat_service
         
         doc_prompt = f"""Generate comprehensive documentation for the following code.
 
@@ -542,7 +542,7 @@ class PythonSubAgent(SubAgent):
         """Execute Python-specific coding task."""
         task.status = "in_progress"
         try:
-            from backend.app.services.intelligent_coding_agent import get_intelligent_coding_agent
+            from app.services.intelligent_coding_agent import get_intelligent_coding_agent
             coding_agent = get_intelligent_coding_agent()
             await coding_agent.initialize()
             
@@ -594,7 +594,7 @@ class JavaScriptSubAgent(SubAgent):
         """Execute JavaScript/TypeScript coding task."""
         task.status = "in_progress"
         try:
-            from backend.app.services.intelligent_coding_agent import get_intelligent_coding_agent
+            from app.services.intelligent_coding_agent import get_intelligent_coding_agent
             coding_agent = get_intelligent_coding_agent()
             await coding_agent.initialize()
             
@@ -641,7 +641,7 @@ class SecuritySubAgent(SubAgent):
         """Execute security review task."""
         task.status = "in_progress"
         try:
-            from backend.app.services.chat import get_chat_service
+            from app.services.chat import get_chat_service
             
             code = task.context.get("code", task.description)
             
@@ -710,7 +710,7 @@ class PerformanceSubAgent(SubAgent):
         """Execute performance review task."""
         task.status = "in_progress"
         try:
-            from backend.app.services.chat import get_chat_service
+            from app.services.chat import get_chat_service
             
             code = task.context.get("code", task.description)
             
@@ -777,7 +777,7 @@ class APISubAgent(SubAgent):
         """Execute API development task."""
         task.status = "in_progress"
         try:
-            from backend.app.services.intelligent_coding_agent import get_intelligent_coding_agent
+            from app.services.intelligent_coding_agent import get_intelligent_coding_agent
             coding_agent = get_intelligent_coding_agent()
             await coding_agent.initialize()
             

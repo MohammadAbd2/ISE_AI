@@ -10,10 +10,10 @@ from urllib.parse import quote_plus, urlparse
 
 import httpx
 
-from backend.app.core.config import settings
-from backend.app.schemas.chat import ChatAttachment, ImageHit, ImageIntelLog
-from backend.app.services.artifacts import ArtifactService, get_artifact_service
-from backend.app.services.vision import VisionService, get_vision_service
+from app.core.config import settings
+from app.schemas.chat import ChatAttachment, ImageHit, ImageIntelLog
+from app.services.artifacts import ArtifactService, get_artifact_service
+from app.services.vision import VisionService, get_vision_service
 
 _MAX_STORE_IMAGE_BYTES = 6 * 1024 * 1024
 

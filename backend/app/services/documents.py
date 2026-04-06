@@ -12,10 +12,10 @@ from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
-from backend.app.schemas.chat import ChatAttachment
-from backend.app.services.artifacts import ArtifactService, get_artifact_service
-from backend.app.services.image_intel import max_image_bytes_for_metadata
-from backend.app.services.vision import VisionService, get_vision_service
+from app.schemas.chat import ChatAttachment
+from app.services.artifacts import ArtifactService, get_artifact_service
+from app.services.image_intel import max_image_bytes_for_metadata
+from app.services.vision import VisionService, get_vision_service
 
 
 class DocumentService:

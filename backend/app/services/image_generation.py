@@ -9,6 +9,9 @@ import io
 from typing import Optional
 from pathlib import Path
 
+HAS_DIFFUSERS = False
+Image = None
+
 try:
     from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
     import torch
@@ -19,6 +22,10 @@ try:
 except ImportError as e:
     HAS_DIFFUSERS = False
     IMPORT_ERROR = str(e)
+    # Create dummy objects for type hints
+    class DummyImage:
+        pass
+    Image = DummyImage
 
 
 class ImageGenerationService:
@@ -76,7 +83,7 @@ class ImageGenerationService:
         height: int = 512,
         num_inference_steps: int = 1,
         guidance_scale: float = 0.0,
-    ) -> Optional[Image.Image]:
+    ) -> "Optional[Image]":
         """Generate an image from a text prompt."""
         if not await self.load_pipeline():
             return None
@@ -132,7 +139,7 @@ async def generate_image(
     prompt: str,
     width: int = 512,
     height: int = 512,
-) -> Optional[Image.Image]:
+) -> "Optional[Image]":
     """Convenience function to generate an image."""
     service = await get_image_service()
     return await service.generate_image(prompt, width=width, height=height)

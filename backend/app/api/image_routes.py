@@ -7,7 +7,7 @@ import base64
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.app.services.image_generation import generate_image
+from app.services.image_generation import generate_image
 
 
 router = APIRouter(prefix="/api/images", tags=["images"])

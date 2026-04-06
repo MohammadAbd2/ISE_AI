@@ -9,9 +9,9 @@ import os
 from typing import Optional
 from pathlib import Path
 
-from backend.app.services.tool_executor import ToolExecutor
-from backend.app.services.implementation_verifier import ImplementationVerifier
-from backend.app.services.evolution_logger import EvolutionLogger
+from app.services.tool_executor import ToolExecutor
+from app.services.implementation_verifier import ImplementationVerifier
+from app.services.evolution_logger import EvolutionLogger
 
 
 class VideoGenerationCapability:
@@ -376,7 +376,7 @@ from pydantic import BaseModel
 from PIL import Image
 import io
 
-from backend.app.services.video_generation import (
+from app.services.video_generation import (
     generate_video_from_image,
     generate_video_from_text,
 )

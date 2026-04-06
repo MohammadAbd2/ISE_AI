@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Optional
 
-from backend.app.schemas.chat import ChatAttachment
+from app.schemas.chat import ChatAttachment
 
 
 class VideoGenService:

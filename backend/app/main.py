@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 
-from backend.app.api.routes import router
-from backend.app.api.evolution_routes import evolution_router
-from backend.app.core.config import settings
+from app.api.routes import router
+from app.api.evolution_routes import evolution_router
+from app.core.config import settings
 
 
 # Keep FastAPI setup minimal here and move real logic into routes/services.
@@ -27,7 +27,7 @@ app.include_router(evolution_router)
 
 # Include enhanced feature routes
 try:
-    from backend.app.api.enhanced_routes import router as enhanced_router
+    from app.api.enhanced_routes import router as enhanced_router
     app.include_router(enhanced_router, prefix="")
     print("✅ Enhanced API endpoints loaded (Terminal, Git, RAG, Voice, etc.)")
 except Exception as e:
@@ -39,7 +39,7 @@ api_dir = Path(__file__).parent / "api"
 image_routes = api_dir / "image_routes.py"
 if image_routes.exists():
     try:
-        from backend.app.api.image_routes import router as image_router
+        from app.api.image_routes import router as image_router
         app.include_router(image_router)
         print("✅ Image generation endpoints loaded")
     except Exception as e:
@@ -48,7 +48,7 @@ if image_routes.exists():
 video_routes = api_dir / "video_routes.py"
 if video_routes.exists():
     try:
-        from backend.app.api.video_routes import router as video_router
+        from app.api.video_routes import router as video_router
         app.include_router(video_router)
         print("✅ Video generation endpoints loaded")
     except Exception as e:
@@ -58,7 +58,7 @@ if video_routes.exists():
 learning_routes = api_dir / "learning_routes.py"
 if learning_routes.exists():
     try:
-        from backend.app.api.learning_routes import router as learning_router
+        from app.api.learning_routes import router as learning_router
         app.include_router(learning_router)
         print("✅ Self-learning and planning endpoints loaded")
     except Exception as e:
@@ -68,7 +68,7 @@ if learning_routes.exists():
 agent_routes = api_dir / "agent_routes.py"
 if agent_routes.exists():
     try:
-        from backend.app.api.agent_routes import router as agent_router
+        from app.api.agent_routes import router as agent_router
         app.include_router(agent_router)
         print("✅ Multi-agent orchestration endpoints loaded")
     except Exception as e:

@@ -10,13 +10,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from backend.app.core.config import settings
-from backend.app.services.artifacts import get_artifact_service
-from backend.app.services.history import get_history_service
-from backend.app.services.search import get_search_service
-from backend.app.services.session_analytics import build_session_analytics_payload
-from backend.app.services.tool_executor import get_tool_executor
-from backend.app.services.visualization_runtime import build_visualization_response
+from app.core.config import settings
+from app.services.artifacts import get_artifact_service
+from app.services.history import get_history_service
+from app.services.search import get_search_service
+from app.services.session_analytics import build_session_analytics_payload
+from app.services.tool_executor import get_tool_executor
+from app.services.visualization_runtime import build_visualization_response
 
 
 @dataclass

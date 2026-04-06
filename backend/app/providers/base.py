@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
-from backend.app.models.message import Message
+from app.models.message import Message
 
 
 class LLMProvider(ABC):

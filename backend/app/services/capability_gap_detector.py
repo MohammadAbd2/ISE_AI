@@ -6,7 +6,7 @@ Analyzes user messages and suggests capability development.
 from dataclasses import dataclass
 from typing import Optional
 
-from backend.app.services.capability_registry import CapabilityRegistry
+from app.services.capability_registry import CapabilityRegistry
 
 
 @dataclass

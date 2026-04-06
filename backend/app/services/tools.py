@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from backend.app.services.chat import ChatService
-from backend.app.services.profile import ProfileService
+from app.services.chat import ChatService
+from app.services.profile import ProfileService
 
 
 @dataclass(slots=True)

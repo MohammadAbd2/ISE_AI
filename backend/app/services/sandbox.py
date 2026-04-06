@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 
-from backend.app.services.artifacts import ArtifactService, get_artifact_service
+from app.services.artifacts import ArtifactService, get_artifact_service
 
 
 class SandboxService:

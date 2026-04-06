@@ -6,24 +6,24 @@ Orchestrates the full workflow: detect gap → research → implement → valida
 from dataclasses import dataclass
 from typing import Optional
 
-from backend.app.services.backup import BackupManager
-from backend.app.services.capability_gap_detector import (
+from app.services.backup import BackupManager
+from app.services.capability_gap_detector import (
     CapabilityGapDetector,
     CapabilityGap,
 )
-from backend.app.services.capability_registry import (
+from app.services.capability_registry import (
     CapabilityRegistry,
     CapabilityStatus,
 )
-from backend.app.services.evolution_logger import (
+from app.services.evolution_logger import (
     EvolutionLogger,
     EvolutionEventType,
     EventStatus,
 )
-from backend.app.services.implementation_verifier import ImplementationVerifier
-from backend.app.services.tool_executor import ToolExecutor
-from backend.app.services.image_gen_capability import ImageGenerationCapability
-from backend.app.services.video_gen_capability import VideoGenerationCapability
+from app.services.implementation_verifier import ImplementationVerifier
+from app.services.tool_executor import ToolExecutor
+from app.services.image_gen_capability import ImageGenerationCapability
+from app.services.video_gen_capability import VideoGenerationCapability
 
 
 @dataclass

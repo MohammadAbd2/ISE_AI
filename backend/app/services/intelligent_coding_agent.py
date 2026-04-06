@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional
-from backend.app.services.terminal import TerminalIntegration
+from app.services.terminal import TerminalIntegration
 
 
 class CodeActionStatus(str, Enum):
@@ -584,12 +584,12 @@ class IntelligentCodingAgent:
             return None
 
         module_name = Path(file_path).stem
-        import_line = f"from backend.app.api.{module_name} import router as {module_name}_router"
+        import_line = f"from app.api.{module_name} import router as {module_name}_router"
         include_line = f"app.include_router({module_name}_router)"
 
         updated = main_content
         if import_line not in updated:
-            anchor = "from backend.app.core.config import settings\n"
+            anchor = "from app.core.config import settings\n"
             if anchor in updated:
                 updated = updated.replace(anchor, f"{anchor}{import_line}\n", 1)
             else:

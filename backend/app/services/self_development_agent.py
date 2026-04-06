@@ -15,8 +15,8 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 from pathlib import Path
 
-from backend.app.services.chat import get_chat_service
-from backend.app.services.artifacts import get_artifact_service
+from app.services.chat import get_chat_service
+from app.services.artifacts import get_artifact_service
 
 
 @dataclass

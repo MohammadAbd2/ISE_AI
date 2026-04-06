@@ -8,9 +8,9 @@ import json
 import os
 from typing import Optional
 
-from backend.app.services.tool_executor import ToolExecutor
-from backend.app.services.implementation_verifier import ImplementationVerifier
-from backend.app.services.evolution_logger import EvolutionLogger
+from app.services.tool_executor import ToolExecutor
+from app.services.implementation_verifier import ImplementationVerifier
+from app.services.evolution_logger import EvolutionLogger
 
 
 class ImageGenerationCapability:
@@ -266,7 +266,7 @@ Image generation API endpoints.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.app.services.image_generation import generate_image
+from app.services.image_generation import generate_image
 
 
 router = APIRouter(prefix="/api/images", tags=["images"])

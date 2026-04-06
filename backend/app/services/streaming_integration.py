@@ -7,9 +7,9 @@ import asyncio
 import logging
 from typing import AsyncIterator, Optional
 
-from backend.app.services.chat_enhancer import ChatEnhancer, StreamConfig
-from backend.app.services.enhanced_agent import EnhancedAgentOrchestrator
-from backend.app.schemas.chat import ChatRequest
+from app.services.chat_enhancer import ChatEnhancer, StreamConfig
+from app.services.enhanced_agent import EnhancedAgentOrchestrator
+from app.schemas.chat import ChatRequest
 
 logger = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ def get_streaming_manager() -> StreamingResponseManager:
 
 # Example of how to use in routes.py:
 """
-from backend.app.services.streaming_integration import get_streaming_manager
+from app.services.streaming_integration import get_streaming_manager
 
 @router.post("/api/chat/stream")
 async def stream_chat(

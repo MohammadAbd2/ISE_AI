@@ -9,9 +9,9 @@ import xml.etree.ElementTree as ET
 
 import httpx
 
-from backend.app.schemas.chat import SearchSource, WebSearchLog
-from backend.app.services.artifacts import ArtifactService, get_artifact_service
-from backend.app.services.url_content import UrlContentService, get_url_content_service
+from app.schemas.chat import SearchSource, WebSearchLog
+from app.services.artifacts import ArtifactService, get_artifact_service
+from app.services.url_content import UrlContentService, get_url_content_service
 
 
 class _DuckDuckGoResultParser(HTMLParser):

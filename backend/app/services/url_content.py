@@ -12,10 +12,10 @@ from urllib.parse import urlparse
 
 import httpx
 
-from backend.app.services.artifacts import ArtifactService, get_artifact_service
-from backend.app.services.documents import DocumentService, get_document_service
-from backend.app.services.image_intel import max_image_bytes_for_metadata
-from backend.app.services.vision import VisionService, get_vision_service
+from app.services.artifacts import ArtifactService, get_artifact_service
+from app.services.documents import DocumentService, get_document_service
+from app.services.image_intel import max_image_bytes_for_metadata
+from app.services.vision import VisionService, get_vision_service
 
 
 class _VisibleTextParser(HTMLParser):
