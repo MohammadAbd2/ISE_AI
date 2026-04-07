@@ -104,16 +104,134 @@ function TextBlock({ content }) {
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
 
-  return paragraphs.map((paragraph, index) => (
-    <p key={`${index}-${paragraph.slice(0, 16)}`} className="rich-paragraph">
-      {paragraph.split("\n").map((line, lineIndex) => (
-        <span key={`${lineIndex}-${line}`}>
-          {line}
-          {lineIndex < paragraph.split("\n").length - 1 ? <br /> : null}
-        </span>
-      ))}
-    </p>
-  ));
+  // Parse markdown images and links
+  function parseMarkdown(text) {
+    const parts = [];
+    const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    const italicRegex = /\*([^*]+)\*/g;
+    
+    let lastIndex = 0;
+    let match;
+    const tempRegex = /!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+    
+    while ((match = tempRegex.exec(text)) !== null) {
+      // Add text before match
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', value: text.slice(lastIndex, match.index) });
+      }
+      
+      // Image match
+      if (match[1] !== undefined) {
+        parts.push({ type: 'image', alt: match[1], src: match[2] });
+      }
+      // Link match
+      else if (match[3] !== undefined) {
+        parts.push({ type: 'link', text: match[3], href: match[4] });
+      }
+      // Bold match
+      else if (match[5] !== undefined) {
+        parts.push({ type: 'bold', value: match[5] });
+      }
+      // Italic match
+      else if (match[6] !== undefined) {
+        parts.push({ type: 'italic', value: match[6] });
+      }
+      
+      lastIndex = tempRegex.lastIndex;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', value: text.slice(lastIndex) });
+    }
+    
+    return parts;
+  }
+
+  return paragraphs.map((paragraph, index) => {
+    const lines = paragraph.split("\n");
+    const hasImage = /!\[([^\]]*)\]\(([^)]+)\)/.test(lines[0]);
+    
+    if (hasImage) {
+      // If first line has an image, render it specially
+      const firstLine = lines[0];
+      const match = firstLine.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      if (match) {
+        return (
+          <div key={`${index}-img`} className="rich-paragraph-with-image">
+            <img 
+              src={match[2]} 
+              alt={match[1]} 
+              className="inline-image"
+              style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', margin: '10px 0' }}
+            />
+            <p className="rich-paragraph">
+              {lines.map((line, lineIndex) => {
+                if (lineIndex === 0) {
+                  // Skip the image markdown on first line, show remaining text
+                  const remaining = line.replace(/!\[([^\]]*)\]\(([^)]+)\)/, '').trim();
+                  return remaining ? (
+                    <span key={`${lineIndex}-${remaining}`}>
+                      {remaining}
+                      {lineIndex < lines.length - 1 ? <br /> : null}
+                    </span>
+                  ) : null;
+                }
+                return (
+                  <span key={`${lineIndex}-${line}`}>
+                    {line}
+                    {lineIndex < lines.length - 1 ? <br /> : null}
+                  </span>
+                );
+              })}
+            </p>
+          </div>
+        );
+      }
+    }
+    
+    // Regular text block
+    return (
+      <p key={`${index}-${paragraph.slice(0, 16)}`} className="rich-paragraph">
+        {lines.map((line, lineIndex) => {
+          const parts = parseMarkdown(line);
+          return (
+            <span key={`${lineIndex}-${line}`}>
+              {parts.map((part, partIndex) => {
+                if (part.type === 'text') {
+                  return <span key={`${partIndex}-text`}>{part.value}</span>;
+                } else if (part.type === 'image') {
+                  return (
+                    <img 
+                      key={`${partIndex}-img`}
+                      src={part.src} 
+                      alt={part.alt}
+                      className="inline-image"
+                      style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', margin: '5px 0' }}
+                    />
+                  );
+                } else if (part.type === 'link') {
+                  return (
+                    <a key={`${partIndex}-link`} href={part.href} target="_blank" rel="noopener noreferrer">
+                      {part.text}
+                    </a>
+                  );
+                } else if (part.type === 'bold') {
+                  return <strong key={`${partIndex}-bold`}>{part.value}</strong>;
+                } else if (part.type === 'italic') {
+                  return <em key={`${partIndex}-italic`}>{part.value}</em>;
+                }
+                return null;
+              })}
+              {lineIndex < lines.length - 1 ? <br /> : null}
+            </span>
+          );
+        })}
+      </p>
+    );
+  });
 }
 
 function GeneratedImage({ imageBase64, prompt, width, height }) {
