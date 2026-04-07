@@ -175,26 +175,43 @@ function SearchLogList({ searchLogs }) {
             </span>
             <span className="search-log-provider">{log.provider || "web"}</span>
           </div>
-          <p className="search-log-query">{log.query}</p>
-          {log.summary ? <p className="search-log-summary">{log.summary}</p> : null}
-          {log.error ? <p className="search-log-error">{log.error}</p> : null}
+          <p className="search-log-query">
+            <strong>Query:</strong> {log.query}
+          </p>
+          {log.summary ? (
+            <p className="search-log-summary">
+              <strong>Summary:</strong> {log.summary}
+            </p>
+          ) : null}
+          {log.error ? <p className="search-log-error">Error: {log.error}</p> : null}
           {Array.isArray(log.sources) && log.sources.length > 0 ? (
             <div className="search-source-list">
-              {log.sources.map((source) => (
+              <h4 style={{ marginTop: "12px", marginBottom: "8px" }}>Sources ({log.sources.length})</h4>
+              {log.sources.map((source, idx) => (
                 <a
-                  key={source.url}
+                  key={`${source.url}-${idx}`}
                   className="search-source-card"
                   href={source.url}
                   target="_blank"
                   rel="noreferrer"
+                  style={{ display: "block", marginBottom: "12px", padding: "10px", borderLeft: "3px solid #0066cc" }}
                 >
-                  <strong>{source.title}</strong>
-                  <span>{source.domain || source.url}</span>
-                  {source.snippet ? <small>{source.snippet}</small> : null}
+                  <strong style={{ display: "block", marginBottom: "4px" }}>{source.title || source.url}</strong>
+                  <span style={{ display: "block", fontSize: "0.85em", color: "#666", marginBottom: "4px" }}>
+                    {source.domain || source.url}
+                  </span>
+                  {source.snippet ? (
+                    <small style={{ display: "block", marginBottom: "4px", color: "#555" }}>
+                      {source.snippet}
+                    </small>
+                  ) : null}
                   {source.page_excerpt ? (
-                    <small className="search-source-page-excerpt">
-                      {source.page_excerpt.length > 720
-                        ? `${source.page_excerpt.slice(0, 720)}…`
+                    <small
+                      className="search-source-page-excerpt"
+                      style={{ display: "block", color: "#666", lineHeight: "1.4" }}
+                    >
+                      {source.page_excerpt.length > 300
+                        ? `${source.page_excerpt.slice(0, 300)}…`
                         : source.page_excerpt}
                     </small>
                   ) : null}

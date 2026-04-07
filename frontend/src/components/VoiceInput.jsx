@@ -35,16 +35,18 @@ function classifyTranscript(transcript) {
 function normalizeVoiceError(errorCode) {
   switch (errorCode) {
     case "network":
-      return "Speech recognition unavailable. This requires an active internet connection (Chrome/Edge use Google's speech servers). Please check your connection or try typing instead.";
+      return "Speech recognition unavailable. Chrome/Edge/Chromium use Google's speech servers. Please check your internet connection or try typing instead.";
     case "not-allowed":
     case "service-not-allowed":
-      return "Microphone permission blocked. Click the 🔒 icon in your browser's address bar and allow microphone access.";
+      return "Microphone permission blocked. Click the 🔒 icon in your browser's address bar and allow microphone access for localhost.";
     case "no-speech":
       return "No speech detected. Please speak clearly and closer to your microphone.";
     case "audio-capture":
       return "No microphone found. Please connect a microphone and refresh the page.";
     case "aborted":
       return "";
+    case "service-not-allowed-permission":
+      return "Microphone permission denied or service unavailable. Check browser settings and try again.";
     default:
       return `Voice error (${errorCode}). Please try again or use text input.`;
   }
@@ -72,10 +74,16 @@ export function useVoiceInput(onTextInsert) {
 
     const isLocalhost = window.location.hostname === 'localhost' || 
                        window.location.hostname === '127.0.0.1' ||
+                       window.location.hostname === '0.0.0.0' ||
                        window.location.protocol === 'file:';
     const isHTTPS = window.location.protocol === 'https:';
+    
+    // Support ParrotOS and other Chromium-based browsers
+    const isChromiumBased = /Chrome|Chromium|Edge|Brave|Opera/.test(navigator.userAgent);
+    const isFirefox = /Firefox/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
 
-    return isLocalhost || isHTTPS;
+    return (isLocalhost || isHTTPS) && (isChromiumBased || isFirefox || isSafari);
   }, []);
 
   const requestMicPermission = useCallback(async () => {

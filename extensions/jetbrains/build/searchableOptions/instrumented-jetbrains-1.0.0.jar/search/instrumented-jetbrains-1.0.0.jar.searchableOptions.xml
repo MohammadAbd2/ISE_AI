@@ -60,32 +60,25 @@
     <option name="api" hit="API Key (optional):" />
     <option name="key" hit="API Key (optional):" />
     <option name="optional" hit="API Key (optional):" />
+    <option name="effort" hit="Effort (low/medium/high):" />
+    <option name="high" hit="Effort (low/medium/high):" />
+    <option name="low" hit="Effort (low/medium/high):" />
+    <option name="medium" hit="Effort (low/medium/high):" />
     <option name="enable" hit="Enable Multi-Agent Orchestration" />
     <option name="multi-agent" hit="Enable Multi-Agent Orchestration" />
     <option name="orchestration" hit="Enable Multi-Agent Orchestration" />
     <option name="ai" hit="ISE AI Copilot" />
     <option name="copilot" hit="ISE AI Copilot" />
     <option name="ise" hit="ISE AI Copilot" />
-    <option name="high" hit="Level (low/medium/high):" />
-    <option name="level" hit="Level (low/medium/high):" />
-    <option name="low" hit="Level (low/medium/high):" />
-    <option name="medium" hit="Level (low/medium/high):" />
     <option name="agent" hit="Mode (auto/chat/agent):" />
     <option name="auto" hit="Mode (auto/chat/agent):" />
     <option name="chat" hit="Mode (auto/chat/agent):" />
     <option name="mode" hit="Mode (auto/chat/agent):" />
-    <option name="4" hit="Model (default: Claude Haiku 4.5):" />
-    <option name="5" hit="Model (default: Claude Haiku 4.5):" />
-    <option name="claude" hit="Model (default: Claude Haiku 4.5):" />
-    <option name="default" hit="Model (default: Claude Haiku 4.5):" />
-    <option name="haiku" hit="Model (default: Claude Haiku 4.5):" />
-    <option name="model" hit="Model (default: Claude Haiku 4.5):" />
+    <option name="default" hit="Model (default: llama3):" />
+    <option name="llama3" hit="Model (default: llama3):" />
+    <option name="model" hit="Model (default: llama3):" />
     <option name="server" hit="Server URL:" />
     <option name="url" hit="Server URL:" />
-    <option name="advanced" hit="Use Advanced Context Analysis" />
-    <option name="analysis" hit="Use Advanced Context Analysis" />
-    <option name="context" hit="Use Advanced Context Analysis" />
-    <option name="use" hit="Use Advanced Context Analysis" />
     <option name="agent" hit="agent" />
     <option name="auto" hit="auto" />
     <option name="chat" hit="chat" />

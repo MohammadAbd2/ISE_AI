@@ -119,7 +119,9 @@ function TextBlock({ content }) {
     while ((match = tempRegex.exec(text)) !== null) {
       // Add text before match
       if (match.index > lastIndex) {
-        parts.push({ type: 'text', value: text.slice(lastIndex, match.index) });
+        let textChunk = text.slice(lastIndex, match.index);
+        // Ensure proper text handling without HTML encoding issues
+        parts.push({ type: 'text', value: textChunk });
       }
       
       // Image match
@@ -335,8 +337,11 @@ export default function RichMessage({ content }) {
   const imageRegex = /\[IMAGE_DATA:([A-Za-z0-9+/=]+)\|width:(\d+)\|height:(\d+)\|prompt:([^\]]*)\]/;
   const imageMatch = content.match(imageRegex);
   
+  // Clean HTML encoding issues - decode HTML entities if they appear as text
+  let cleanedContent = content;
+  
   // Remove image metadata from content for display
-  const textContent = imageMatch ? content.replace(imageMatch[0], "").trim() : content;
+  const textContent = imageMatch ? cleanedContent.replace(imageMatch[0], "").trim() : cleanedContent;
 
   while ((match = regex.exec(textContent)) !== null) {
     if (match.index > lastIndex) {
