@@ -88,10 +88,18 @@ class ChatAgent:
                 attachments=payload.attachments,
             )
         else:
-            # Use regular chat for questions
+            # Use regular chat for questions - still run orchestrator to get tools/search
+            orchestration = await self.orchestrator.run(
+                user_message=payload.message,
+                session_id=session_id,
+                attachments=payload.attachments,
+            )
             decision = AgentDecision(
                 memory_note="",
-                tool_context=None,
+                tool_context=orchestration.tool_context if orchestration.tool_context else None,
+                search_logs=orchestration.search_logs or [],
+                image_logs=orchestration.image_logs or [],
+                render_blocks=orchestration.render_blocks or [],
             )
 
         if decision.reply is not None:
@@ -158,10 +166,18 @@ class ChatAgent:
                 attachments=payload.attachments,
             )
         else:
-            # Use regular chat for questions
+            # Use regular chat for questions - still run orchestrator to get tools/search
+            orchestration = await self.orchestrator.run(
+                user_message=payload.message,
+                session_id=session_id,
+                attachments=payload.attachments,
+            )
             decision = AgentDecision(
                 memory_note="",
-                tool_context=None,
+                tool_context=orchestration.tool_context if orchestration.tool_context else None,
+                search_logs=orchestration.search_logs or [],
+                image_logs=orchestration.image_logs or [],
+                render_blocks=orchestration.render_blocks or [],
             )
         
         if decision.reply is not None:

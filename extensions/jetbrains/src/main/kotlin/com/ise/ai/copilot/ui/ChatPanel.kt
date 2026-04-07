@@ -54,8 +54,8 @@ class ChatPanel(private val project: Project) {
     private val docsButton = JButton("📝 Docs")
     
     // Settings controls
-    private val modelSelector = JComboBox(arrayOf("Claude Haiku 4.5", "llama3", "llama2", "mistral")).apply {
-        selectedItem = "Claude Haiku 4.5"
+    private val modelSelector = JComboBox(arrayOf("llama3", "llama3.2:3b", "qwen:7b", "qwen2.5:7b")).apply {
+        selectedItem = "llama3"
         preferredSize = Dimension(150, 24)
     }
     private val modeSelector = JComboBox(arrayOf("auto", "chat", "agent")).apply {
@@ -122,7 +122,7 @@ class ChatPanel(private val project: Project) {
             add(modeSelector)
             add(loadProjectButton)
             
-            add(JLabel("Level:").apply { horizontalAlignment = SwingConstants.RIGHT })
+            add(JLabel("Effort:").apply { horizontalAlignment = SwingConstants.RIGHT })
             add(levelSelector)
             add(JLabel(""))
         }
@@ -163,7 +163,7 @@ class ChatPanel(private val project: Project) {
         val topPanel = JPanel(BorderLayout()).apply {
             border = EmptyBorder(10, 10, 5, 10)
             background = JBColor.background()
-            add(JLabel("ISE AI Copilot - Powered by Claude Haiku 4.5").apply {
+            add(JLabel("ISE AI Copilot - Local Models via Ollama").apply {
                 font = Font(font.name, Font.BOLD, 13)
             }, BorderLayout.WEST)
         }
@@ -261,10 +261,7 @@ class ChatPanel(private val project: Project) {
         
         modelSelector.addActionListener {
             val selected = modelSelector.selectedItem as String
-            service.model = when (selected) {
-                "Claude Haiku 4.5" -> "claude-haiku-4.5"
-                else -> selected.lowercase()
-            }
+            service.model = selected
             updateStatus("Model: $selected")
         }
         
@@ -274,8 +271,8 @@ class ChatPanel(private val project: Project) {
         }
         
         levelSelector.addActionListener {
-            service.level = levelSelector.selectedItem as String
-            updateStatus("Level: ${service.level}")
+            service.effort = levelSelector.selectedItem as String
+            updateStatus("Effort: ${service.effort}")
         }
     }
     
@@ -390,7 +387,7 @@ class ChatPanel(private val project: Project) {
         val context = getEditorContext()
         val requestModel = service.model
         val requestMode = service.mode
-        val requestLevel = service.level
+        val requestEffort = service.effort
 
         // Send request using IDE's application thread context
         scope.launch(CoroutineExceptionHandler { _, exception ->
@@ -406,7 +403,7 @@ class ChatPanel(private val project: Project) {
                 var response = ""
                 
                 response = withContext(Dispatchers.IO) {
-                    service.streamRequest(message, context, requestModel, requestMode, requestLevel) { chunk ->
+                    service.streamRequest(message, context, requestModel, requestMode, requestEffort) { chunk ->
                         // Update UI on EDT
                         ApplicationManager.getApplication().invokeLater {
                             streamAssistantChunk(chunk)

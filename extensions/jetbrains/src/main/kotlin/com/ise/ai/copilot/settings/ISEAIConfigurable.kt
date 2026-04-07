@@ -23,20 +23,18 @@ class ISEAIConfigurable : Configurable {
                mySettingsComponent?.apiKey?.text != service.apiKey ||
                mySettingsComponent?.model?.text != service.model ||
                mySettingsComponent?.mode?.selectedItem as String != service.mode ||
-               mySettingsComponent?.level?.selectedItem as String != service.level ||
-               mySettingsComponent?.enableMultiAgent?.isSelected != service.enableMultiAgent ||
-               mySettingsComponent?.useAdvancedContext?.isSelected != service.useAdvancedContext
+               mySettingsComponent?.effort?.selectedItem as String != service.effort ||
+               mySettingsComponent?.enableMultiAgent?.isSelected != service.enableMultiAgent
     }
 
     override fun apply() {
         val service = ISEAIService.getInstance()
         service.serverUrl = mySettingsComponent?.serverUrl?.text ?: "http://localhost:8000"
         service.apiKey = mySettingsComponent?.apiKey?.text ?: ""
-        service.model = mySettingsComponent?.model?.text ?: "claude-haiku-4.5"
+        service.model = mySettingsComponent?.model?.text ?: "llama3"
         service.mode = mySettingsComponent?.mode?.selectedItem as String? ?: "auto"
-        service.level = mySettingsComponent?.level?.selectedItem as String? ?: "medium"
+        service.effort = mySettingsComponent?.effort?.selectedItem as String? ?: "medium"
         service.enableMultiAgent = mySettingsComponent?.enableMultiAgent?.isSelected ?: true
-        service.useAdvancedContext = mySettingsComponent?.useAdvancedContext?.isSelected ?: true
         
         Messages.showInfoMessage("Settings saved successfully", "ISE AI Copilot")
     }
@@ -47,9 +45,8 @@ class ISEAIConfigurable : Configurable {
         mySettingsComponent?.apiKey?.text = service.apiKey
         mySettingsComponent?.model?.text = service.model
         mySettingsComponent?.mode?.selectedItem = service.mode
-        mySettingsComponent?.level?.selectedItem = service.level
+        mySettingsComponent?.effort?.selectedItem = service.effort
         mySettingsComponent?.enableMultiAgent?.isSelected = service.enableMultiAgent
-        mySettingsComponent?.useAdvancedContext?.isSelected = service.useAdvancedContext
     }
 
     override fun disposeUIResources() {

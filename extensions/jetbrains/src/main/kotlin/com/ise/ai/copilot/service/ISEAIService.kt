@@ -45,11 +45,10 @@ class ISEAIService {
 
     var serverUrl: String = "http://localhost:8000"
     var apiKey: String = ""
-    var model: String = "claude-haiku-4.5"
+    var model: String = "llama3"
     var mode: String = "auto"
-    var level: String = "medium"
+    var effort: String = "medium"
     var enableMultiAgent: Boolean = true
-    var useAdvancedContext: Boolean = true
 
     companion object {
         @JvmStatic
@@ -100,41 +99,21 @@ class ISEAIService {
         context: Map<String, Any?>? = null,
         model: String = "",
         mode: String = "auto",
-        level: String = "medium",
+        effort: String = "medium",
         onChunk: (String) -> Unit
     ): String {
         return withContext(Dispatchers.IO) {
             currentJob = coroutineContext[Job]
             
             try {
-                val systemPrompt = when {
-                    mode == "agent" -> """You are an autonomous AI agent capable of analyzing code, suggesting improvements, and executing tasks. 
-You should be proactive in identifying issues and providing solutions."""
-                    mode == "chat" -> """You are a helpful AI assistant. Provide clear, conversational responses.
-Be friendly and engage the user in dialogue."""
-                    else -> """You are an intelligent code assistant. Analyze code, provide explanations, suggestions, and improvements.
-Be concise but thorough. Format code blocks with proper syntax highlighting."""
-                }
-                
-                val contextStr = context?.entries?.joinToString("\n") { (k, v) ->
-                    "$k: ${v.toString().take(500)}"
-                } ?: ""
-                
                 val requestBody = mapper.writeValueAsString(
                     mapOf(
                         "message" to message,
                         "model" to (model.ifEmpty { this@ISEAIService.model }),
                         "mode" to mode,
-                        "level" to level,
-                        "system_prompt" to systemPrompt,
-                        "multi_agent" to enableMultiAgent,
-                        "use_advanced_context" to useAdvancedContext,
-                        "context" to (context ?: emptyMap<String, Any?>()),
-                        "temperature" to when (level) {
-                            "low" -> 0.2
-                            "high" -> 0.9
-                            else -> 0.6
-                        }
+                        "effort" to effort,
+                        "conversation" to emptyList<Any>(),
+                        "attachments" to emptyList<Any>()
                     )
                 )
 

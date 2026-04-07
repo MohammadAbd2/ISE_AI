@@ -103,7 +103,6 @@ export default function Composer({
               Send
             </button>
           )}
-          )}
         </div>
       </div>
       <div className="composer-footer-row">
