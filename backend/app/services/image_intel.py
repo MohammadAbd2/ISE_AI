@@ -461,14 +461,16 @@ class ImageIntelService:
     @staticmethod
     def _format_search_context(log: ImageIntelLog) -> str:
         lines = [
-            f"Image search ({log.provider}) for `{log.query}` — use these URLs when recommending visuals:",
+            f"Image search ({log.provider}) for `{log.query}`:\n",
         ]
-        for hit in log.images[:12]:
-            lines.append(f"- {hit.title}\n  Image: {hit.image_url}\n  Page: {hit.page_url or hit.image_url}")
+        for i, hit in enumerate(log.images[:12], 1):
+            lines.append(f"{i}. {hit.title}")
+            lines.append(f"   ![{hit.title}]({hit.image_url})")
+            lines.append(f"   Page: {hit.page_url or hit.image_url}")
         lines.append(
-            "In your reply, you may embed thumbnails using markdown like "
-            f"![description]({log.images[0].thumbnail_url or log.images[0].image_url}) "
-            "when it helps the user."
+            "\n✓ IMPORTANT: You MUST embed the image URLs above in your response using markdown format: ![description](url_here)"
+            "\n✓ Display at least 3 of the best matching images from the search results above"
+            "\n✓ Include the image titles and explain which image matches the user's request"
         )
         return "\n".join(lines)
 
