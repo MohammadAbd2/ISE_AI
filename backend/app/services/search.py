@@ -292,16 +292,23 @@ class SearchService:
             lines.append("- No search results were available for this query.")
             return "\n".join(lines)
 
-        for source in log.sources:
+        # Limit to top 5 sources to manage token usage
+        for source in log.sources[:5]:
             source_line = f"- {source.title} ({source.url})"
             if source.snippet:
                 source_line += f"\n  Snippet: {source.snippet}"
+            # Reduce page excerpt to 1500 chars to limit tokens
             if source.page_excerpt:
-                clip = source.page_excerpt[:3200]
-                if len(source.page_excerpt) > 3200:
+                clip = source.page_excerpt[:1500]
+                if len(source.page_excerpt) > 1500:
                     clip += "…"
                 source_line += f"\n  Page excerpt: {clip}"
             lines.append(source_line)
+        
+        # Add info if there were more sources
+        if len(log.sources) > 5:
+            lines.append(f"\n(Note: {len(log.sources) - 5} additional sources available but limited for token usage)")
+        
         return "\n".join(lines)
 
     def _build_research_metadata(self, log: WebSearchLog, query_variants: list[str]) -> dict:

@@ -76,6 +76,30 @@ class ChatService:
     ) -> list[Message]:
         # Compose one system message so provider adapters receive a clean message list.
         tool_context = tool_context or []
+        
+        # Limit tool context to prevent excessive token usage
+        # Rough estimate: ~4 chars per token, so limit context to ~8000 chars
+        tool_context_str = ""
+        max_context_chars = 8000
+        
+        if tool_context:
+            # Prioritize earlier tool results (usually more relevant)
+            accumulated_len = 0
+            limited_context = []
+            
+            for ctx in tool_context:
+                if accumulated_len + len(ctx) + 2 <= max_context_chars:
+                    limited_context.append(ctx)
+                    accumulated_len += len(ctx) + 2
+                else:
+                    # Still add partial context if we haven't exceeded limit by much
+                    remaining = max_context_chars - accumulated_len
+                    if remaining > 500:  # Only add if meaningful amount of space
+                        limited_context.append(ctx[:remaining])
+                    break
+            
+            tool_context_str = "\n\n".join(limited_context)
+        
         system_parts = [
             settings.system_prompt,
             self._build_effort_instruction(effort),
@@ -96,11 +120,11 @@ class ChatService:
             )
         if memory_note.strip():
             system_parts.append(memory_note.strip())
-        if tool_context:
+        if tool_context_str:
             system_parts.append(
                 "Tool results:\n"
                 "Use these results as your factual grounding. Do not override them with older internal knowledge.\n\n"
-                + "\n\n".join(tool_context)
+                + tool_context_str
             )
         messages = [Message(role="system", content="\n\n".join(system_parts))]
         messages.extend(conversation)
