@@ -628,7 +628,16 @@ class ImageGenerationAgent:
 
         lower = user_message.lower()
 
-        # FIRST: Exclude coding/development tasks (these should go to CodingAgent)
+        # FIRST: Exclude search/find requests (these should go to ImageIntelAgent for web search)
+        search_indicators = [
+            "search for", "find", "look for", "find images", "find pictures",
+            "search images", "search pictures", "search on the internet",
+            "show me pictures", "show me images", "on the internet",
+        ]
+        if any(indicator in lower for indicator in search_indicators):
+            return False
+
+        # SECOND: Exclude coding/development tasks (these should go to CodingAgent)
         coding_indicators = [
             "file", "component", "react", "function", "class", "api",
             "endpoint", "route", "module", "import", "export", "frontend",
@@ -663,7 +672,7 @@ class ImageGenerationAgent:
         if any(trigger in lower for trigger in image_triggers):
             return True
 
-        # Check for descriptive image requests (MUST have visual keywords)
+        # Check for descriptive image requests (MUST have visual keywords + strong generation intent)
         visual_keywords = [
             "cat", "dog", "sunset", "mountain", "ocean", "forest",
             "city", "building", "person", "animal", "flower", "tree",
@@ -672,11 +681,11 @@ class ImageGenerationAgent:
             "space", "planet", "galaxy", "star", "moon", "sun",
         ]
         
-        # Only match if it's clearly about visual content
+        # Only match if it's clearly about visual content AND has strong generation intent
         if any(word in lower for word in visual_keywords):
-            # Must also have a creation verb
-            creation_verbs = ["generate", "create", "draw", "make", "show", "image", "picture"]
-            if any(verb in lower for verb in creation_verbs):
+            # Must have a STRONG creation verb (not just "show" or "picture")
+            generation_verbs = ["generate", "create", "draw", "make"]
+            if any(verb in lower for verb in generation_verbs):
                 return True
 
         return False

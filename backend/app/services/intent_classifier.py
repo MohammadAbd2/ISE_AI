@@ -25,8 +25,9 @@ class IntentClassifier:
         "endpoint", "build the chart", "create chart component", "write chart code",
     )
     RESEARCH_TERMS = (
-        "latest", "recent", "today", "news", "research", "look up", "find on the web",
-        "search the web", "sources", "compare", "citation",
+        "search", "search the", "search for", "search on", "find on the web",
+        "latest", "recent", "today", "news", "research", "look up",
+        "sources", "compare", "citation",
     )
     PROJECT_TERMS = (
         "project", "repo", "repository", "zip", "archive", "codebase", "folder",
