@@ -35,7 +35,7 @@ function classifyTranscript(transcript) {
 function normalizeVoiceError(errorCode) {
   switch (errorCode) {
     case "network":
-      return "Network error: Speech recognition requires an active internet connection. Please check your connection and try again.";
+      return "Speech recognition unavailable. This requires an active internet connection (Chrome/Edge use Google's speech servers). Please check your connection or try typing instead.";
     case "not-allowed":
     case "service-not-allowed":
       return "Microphone permission blocked. Click the 🔒 icon in your browser's address bar and allow microphone access.";
@@ -259,13 +259,8 @@ export function useVoiceInput(onTextInsert) {
           return;
         } else {
           setError(
-            "Voice recognition requires an active internet connection.\n\n" +
-            "Chrome/Edge use Google's speech servers which are currently unreachable.\n\n" +
-            "Please:\n" +
-            "1. Check your internet connection\n" +
-            "2. Ensure you're not behind a restrictive firewall\n" +
-            "3. Try again in a moment\n\n" +
-            "Or use text input instead."
+            "Voice recognition requires internet (Chrome/Edge use Google's servers). " +
+            "Please check your connection or use text input instead."
           );
           setIsListening(false);
           return;
