@@ -72,6 +72,7 @@ class ChatPanel(private val project: Project) {
     
     private val chatLayout = BoxLayout(chatContainer, BoxLayout.Y_AXIS)
     private var currentMessageLabel: JEditorPane? = null
+    private var currentMessageText: String = ""
     private var isStreaming = false
     private var loadedContext: String = ""
     private var projectFiles: List<String> = emptyList()
@@ -546,6 +547,7 @@ class ChatPanel(private val project: Project) {
                 })
             }
             
+            currentMessageText = chunk
             currentMessageLabel = MessageFormatter.createHTMLEditorPane(chunk)
             currentMessageLabel!!.apply {
                 background = bgColor
@@ -562,10 +564,8 @@ class ChatPanel(private val project: Project) {
             panel.add(scrollPane, BorderLayout.CENTER)
             chatContainer.add(panel)
         } else {
-            currentMessageLabel?.text = MessageFormatter.formatMarkdown(
-                (currentMessageLabel?.text?.removePrefix("<html><body style='font-family: system, -apple-system, sans-serif; line-height: 1.6; color: #333;'>")
-                    ?.removeSuffix("</body></html>") ?: "") + chunk
-            )
+            currentMessageText += chunk
+            currentMessageLabel?.text = MessageFormatter.formatMarkdown(currentMessageText)
         }
         
         SwingUtilities.invokeLater {
@@ -575,6 +575,7 @@ class ChatPanel(private val project: Project) {
 
     private fun finishAssistantMessage(response: String) {
         currentMessageLabel = null
+        currentMessageText = ""
     }
 
     fun dispose() {

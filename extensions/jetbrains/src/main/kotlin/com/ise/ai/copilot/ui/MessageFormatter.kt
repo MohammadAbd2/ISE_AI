@@ -5,11 +5,21 @@ import javax.swing.text.html.HTMLEditorKit
 
 /**
  * Utility class for markdown and code formatting
+ * IMPORTANT: Only escape HTML once! Backend sends plain text, not pre-escaped HTML
  */
 object MessageFormatter {
     
     fun formatMarkdown(text: String): String {
-        var html = escapeHtml(text)
+        // CRITICAL: Don't decode - text should be plain text from backend
+        // If it contains &amp;lt; etc., that means it was already escaped twice
+        var html = if (isAlreadyEncoded(text)) {
+            // Detect and prevent double encoding
+            decodeHtml(text)
+        } else {
+            text
+        }
+        
+        html = escapeHtml(html)
         
         // Code blocks (```language...```)
         html = html.replace(Regex("```([a-z]*)\n(.*?)\n```", RegexOption.DOT_MATCHES_ALL)) { match ->
@@ -86,6 +96,24 @@ object MessageFormatter {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;")
+    }
+    
+    private fun isAlreadyEncoded(text: String): Boolean {
+        // Check if text contains multiple levels of encoding
+        return text.contains("&amp;lt;") || text.contains("&amp;gt;") || 
+               text.contains("&amp;quot;") || text.contains("&amp;#39;") ||
+               text.contains("&amp;amp;")
+    }
+    
+    private fun decodeHtml(text: String): String {
+        var decoded = text
+        // Only decode once
+        decoded = decoded.replace("&amp;", "&")
+        decoded = decoded.replace("&lt;", "<")
+        decoded = decoded.replace("&gt;", ">")
+        decoded = decoded.replace("&quot;", "\"")
+        decoded = decoded.replace("&#39;", "'")
+        return decoded
     }
     
     fun createHTMLEditorPane(content: String): javax.swing.JEditorPane {

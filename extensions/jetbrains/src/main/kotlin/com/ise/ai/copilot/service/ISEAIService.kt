@@ -100,18 +100,25 @@ class ISEAIService {
         model: String = "",
         mode: String = "auto",
         effort: String = "medium",
+        projectContext: Map<String, Any?>? = null,
         onChunk: (String) -> Unit
     ): String {
         return withContext(Dispatchers.IO) {
             currentJob = coroutineContext[Job]
             
             try {
+                // Merge project context with custom context
+                val mergedContext = mutableMapOf<String, Any?>()
+                projectContext?.let { mergedContext.putAll(it) }
+                context?.let { mergedContext.putAll(it) }
+                
                 val requestBody = mapper.writeValueAsString(
                     mapOf(
                         "message" to message,
                         "model" to (model.ifEmpty { this@ISEAIService.model }),
                         "mode" to mode,
                         "effort" to effort,
+                        "context" to mergedContext,
                         "conversation" to emptyList<Any>(),
                         "attachments" to emptyList<Any>()
                     )

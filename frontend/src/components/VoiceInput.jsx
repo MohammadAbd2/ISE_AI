@@ -35,20 +35,20 @@ function classifyTranscript(transcript) {
 function normalizeVoiceError(errorCode) {
   switch (errorCode) {
     case "network":
-      return "Speech recognition unavailable. Chrome/Edge/Chromium use Google's speech servers. Please check your internet connection or try typing instead.";
+      return "Network error: Speech recognition requires internet access. On restricted networks (ParrotOS, VPNs), try: 1) Allow microphone permission, 2) Check firewall settings, 3) Try a different browser, or 4) Use text input.";
     case "not-allowed":
     case "service-not-allowed":
-      return "Microphone permission blocked. Click the 🔒 icon in your browser's address bar and allow microphone access for localhost.";
+      return "Microphone permission blocked. Click the 🔒 icon in the address bar and select 'Allow' for microphone access.";
     case "no-speech":
-      return "No speech detected. Please speak clearly and closer to your microphone.";
+      return "No speech detected. Please speak clearly, closer to the microphone, and ensure the background is quiet.";
     case "audio-capture":
-      return "No microphone found. Please connect a microphone and refresh the page.";
+      return "No microphone found. Please connect a microphone, check system audio settings, and refresh the page.";
     case "aborted":
       return "";
     case "service-not-allowed-permission":
-      return "Microphone permission denied or service unavailable. Check browser settings and try again.";
+      return "Speech service not available. Check browser settings: Settings → Privacy → Site Settings → Microphone → Allow.";
     default:
-      return `Voice error (${errorCode}). Please try again or use text input.`;
+      return `Voice error (${errorCode}). If this persists on a restricted network, please use text input.`;
   }
 }
 

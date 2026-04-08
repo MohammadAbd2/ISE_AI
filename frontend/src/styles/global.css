@@ -1401,3 +1401,248 @@ a {
     order: initial;
   }
 }
+
+/* Voice Error Container and Diagnostics */
+.voice-error-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  background: rgba(255, 125, 144, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.voice-error {
+  flex: 1;
+  word-break: break-word;
+}
+
+.voice-diagnose-button {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: rgba(255, 125, 144, 0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 140ms ease;
+}
+
+.voice-diagnose-button:hover {
+  background: rgba(255, 125, 144, 0.25);
+  transform: scale(1.05);
+}
+
+/* Diagnostics Modal */
+.voice-diagnostics-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.voice-diagnostics-modal {
+  background: var(--panel-strong);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+  animation: slideUp 200ms ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.voice-diagnostics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.voice-diagnostics-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.voice-diagnostics-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 140ms ease;
+}
+
+.voice-diagnostics-close:hover {
+  background: rgba(112, 204, 255, 0.1);
+  color: var(--accent);
+}
+
+.voice-diagnostics-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.diagnostics-section {
+  padding: 12px;
+  background: rgba(112, 204, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.diagnostics-section h4 {
+  margin: 0 0 10px 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.diagnostics-section p {
+  margin: 6px 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.status-ok {
+  color: var(--success) !important;
+}
+
+.status-error {
+  color: var(--danger) !important;
+}
+
+.recommendation {
+  margin-bottom: 12px;
+  padding: 10px;
+  background: rgba(10, 24, 35, 0.6);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 4px;
+}
+
+.recommendation.priority-high {
+  border-left-color: var(--danger);
+  background: rgba(255, 125, 144, 0.05);
+}
+
+.recommendation.priority-medium {
+  border-left-color: #ff9800;
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.recommendation.priority-low {
+  border-left-color: var(--accent);
+  background: rgba(68, 211, 255, 0.05);
+}
+
+.recommendation strong {
+  color: var(--text);
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+.recommendation p {
+  margin: 4px 0;
+  font-size: 0.85rem;
+}
+
+.recommendation .action {
+  color: var(--accent);
+  font-style: italic;
+  margin-top: 6px;
+}
+
+.diagnostics-report {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-x: auto;
+  max-height: 200px;
+  margin: 10px 0;
+  font-family: 'Courier New', monospace;
+}
+
+.copy-report-button {
+  background: rgba(68, 211, 255, 0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 140ms ease;
+}
+
+.copy-report-button:hover {
+  background: rgba(68, 211, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.voice-diagnostics-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.voice-diagnostics-footer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.voice-diagnostics-ok {
+  background: rgba(41, 215, 165, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 140ms ease;
+}
+
+.voice-diagnostics-ok:hover {
+  background: rgba(41, 215, 165, 0.2);
+  transform: translateY(-2px);
+}

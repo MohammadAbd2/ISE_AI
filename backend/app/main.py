@@ -10,8 +10,8 @@ from app.core.config import settings
 # Keep FastAPI setup minimal here and move real logic into routes/services.
 app = FastAPI(
     title=settings.app_name,
-    version="0.2.0",  # Updated version for enhanced features
-    description="Local AI chatbot backend with agent-oriented architecture and self-evolution capabilities.",
+    version="0.3.0",  # Updated version with project awareness
+    description="Local AI chatbot backend with agent-oriented architecture, project awareness, and self-evolution capabilities.",
 )
 
 app.add_middleware(
@@ -24,6 +24,14 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(evolution_router)
+
+# Include project analysis routes
+try:
+    from app.api.project_routes import router as project_router
+    app.include_router(project_router)
+    print("✅ Project analysis endpoints loaded")
+except Exception as e:
+    print(f"⚠️  Could not load project routes: {e}")
 
 # Include enhanced feature routes
 try:

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { runVoiceDiagnostics, formatDiagnosticsReport } from "../utils/voiceDiagnostics";
 
 function classifyTranscript(transcript) {
   const lower = transcript.toLowerCase();
@@ -35,18 +36,20 @@ function classifyTranscript(transcript) {
 function normalizeVoiceError(errorCode) {
   switch (errorCode) {
     case "network":
-      return "Network error: Speech recognition requires an active internet connection. Please check your connection and try again. (Chrome/Edge use Google's speech servers)";
+      return "Network error: Speech recognition requires internet access. On restricted networks (ParrotOS, VPNs), try: 1) Allow microphone permission, 2) Check firewall settings, 3) Try a different browser, or 4) Use text input.";
     case "not-allowed":
     case "service-not-allowed":
-      return "Microphone permission blocked. Click the 🔒 icon in your browser's address bar and allow microphone access.";
+      return "Microphone permission blocked. Click the 🔒 icon in the address bar and select 'Allow' for microphone access.";
     case "no-speech":
-      return "No speech detected. Please speak clearly and closer to your microphone.";
+      return "No speech detected. Please speak clearly, closer to the microphone, and ensure the background is quiet.";
     case "audio-capture":
-      return "No microphone found. Please connect a microphone and refresh the page.";
+      return "No microphone found. Please connect a microphone, check system audio settings, and refresh the page.";
     case "aborted":
       return "";
+    case "service-not-allowed-permission":
+      return "Speech service not available. Check browser settings: Settings → Privacy → Site Settings → Microphone → Allow.";
     default:
-      return `Voice error (${errorCode}). Please try again or use text input.`;
+      return `Voice error (${errorCode}). If this persists on a restricted network, please use text input.`;
   }
 }
 
@@ -255,7 +258,15 @@ export function useVoiceCommand(onCommand) {
       if (event.error === "network") {
         retryCountRef.current += 1;
         
-        if (retryCountRef.current <= 2) {
+        // For restricted networks (ParrotOS), provide user guidance
+        const isRestrictedNetwork = () => {
+          // ParrotOS and other restricted envs often block Google services
+          return navigator.userAgent.includes("ParrotOS") || 
+                 navigator.userAgent.includes("Linux") ||
+                 window.location.hostname === "localhost";
+        };
+        
+        if (retryCountRef.current <= 2 && !isRestrictedNetwork()) {
           setError(`Network error - retrying (${retryCountRef.current}/2)...`);
           // Auto-retry after 1 second
           setTimeout(() => {
@@ -275,15 +286,28 @@ export function useVoiceCommand(onCommand) {
           }, 1000);
           return;
         } else {
-          setError(
-            "Voice recognition requires an active internet connection.\n\n" +
-            "Chrome/Edge use Google's speech servers which are currently unreachable.\n\n" +
-            "Please:\n" +
-            "1. Check your internet connection\n" +
-            "2. Ensure you're not behind a restrictive firewall\n" +
-            "3. Try again in a moment\n\n" +
-            "Or use text input instead."
-          );
+          // On restricted networks, provide actionable guidance
+          if (isRestrictedNetwork()) {
+            setError(
+              "Voice recognition requires Google's speech servers, which may be blocked on this network.\n\n" +
+              "Solutions:\n" +
+              "1. Check if Google services are accessible: https://www.google.com\n" +
+              "2. Disable VPN or proxy if active\n" +
+              "3. Check firewall settings to allow Google Cloud Speech API\n" +
+              "4. Use text input as an alternative\n\n" +
+              "For offline speech-to-text, we recommend using text input."
+            );
+          } else {
+            setError(
+              "Voice recognition requires an active internet connection.\n\n" +
+              "Chrome/Edge use Google's speech servers which are currently unreachable.\n\n" +
+              "Please:\n" +
+              "1. Check your internet connection\n" +
+              "2. Ensure you're not behind a restrictive firewall\n" +
+              "3. Try again in a moment\n\n" +
+              "Or use text input instead."
+            );
+          }
           setIsListening(false);
           return;
         }
@@ -327,6 +351,8 @@ export function useVoiceCommand(onCommand) {
 export function VoiceCommandButton({ onCommand }) {
   const { isListening, transcript, error, supported, startListening, stopListening } =
     useVoiceCommand(onCommand);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticsReport, setDiagnosticsReport] = useState(null);
 
   // Hide button entirely if not supported
   if (!supported) {
@@ -339,6 +365,16 @@ export function VoiceCommandButton({ onCommand }) {
     } else {
       await startListening();
     }
+  };
+
+  const handleRunDiagnostics = async () => {
+    const diagnostics = await runVoiceDiagnostics();
+    setDiagnosticsReport(diagnostics);
+    setShowDiagnostics(true);
+  };
+
+  const closeDiagnostics = () => {
+    setShowDiagnostics(false);
   };
 
   return (
@@ -365,10 +401,126 @@ export function VoiceCommandButton({ onCommand }) {
         </span>
       ) : null}
       {!isListening && error ? (
-        <span className="voice-error" title={error}>
-          {error.length > 50 ? error.substring(0, 50) + "..." : error}
-        </span>
+        <div className="voice-error-container">
+          <span className="voice-error" title={error}>
+            {error.length > 50 ? error.substring(0, 50) + "..." : error}
+          </span>
+          <button
+            type="button"
+            className="voice-diagnose-button"
+            onClick={handleRunDiagnostics}
+            title="Run voice diagnostics to troubleshoot"
+          >
+            🔧
+          </button>
+          {showDiagnostics && diagnosticsReport && (
+            <VoiceDiagnosticsModal 
+              diagnostics={diagnosticsReport} 
+              onClose={closeDiagnostics}
+            />
+          )}
+        </div>
       ) : null}
+    </div>
+  );
+}
+
+function VoiceDiagnosticsModal({ diagnostics, onClose }) {
+  const reportText = formatDiagnosticsReport(diagnostics);
+
+  return (
+    <div className="voice-diagnostics-overlay" onClick={onClose}>
+      <div className="voice-diagnostics-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="voice-diagnostics-header">
+          <h3>Voice Recognition Diagnostics</h3>
+          <button 
+            type="button"
+            className="voice-diagnostics-close"
+            onClick={onClose}
+            title="Close diagnostics"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="voice-diagnostics-content">
+          <div className="diagnostics-section">
+            <h4>Browser Support</h4>
+            <p className={diagnostics.checks.browserSupport?.apiAvailable ? "status-ok" : "status-error"}>
+              API Available: {diagnostics.checks.browserSupport?.apiAvailable ? "✓" : "✗"}
+            </p>
+            <p>Browser: {diagnostics.checks.browserSupport?.browser}</p>
+          </div>
+
+          <div className="diagnostics-section">
+            <h4>Microphone</h4>
+            <p className={diagnostics.checks.microphonePermission?.allowed ? "status-ok" : "status-error"}>
+              Permission: {diagnostics.checks.microphonePermission?.status}
+            </p>
+            <p>{diagnostics.checks.microphonePermission?.message}</p>
+            {diagnostics.checks.audioDevices?.devices?.length > 0 && (
+              <p>Devices: {diagnostics.checks.audioDevices.devices.map(d => d.label).join(", ")}</p>
+            )}
+          </div>
+
+          <div className="diagnostics-section">
+            <h4>Network</h4>
+            <p className={diagnostics.checks.networkConnectivity?.available ? "status-ok" : "status-error"}>
+              Online: {diagnostics.checks.networkConnectivity?.online ? "✓" : "✗"}
+            </p>
+            <p>Google Accessible: {diagnostics.checks.networkConnectivity?.googleAccessible ? "✓" : "✗"}</p>
+            <p>Speech API: {diagnostics.checks.networkConnectivity?.googleSpeechAccessible ? "✓" : "✗"}</p>
+            {diagnostics.checks.networkConnectivity?.latency && (
+              <p>Latency: {diagnostics.checks.networkConnectivity.latency}ms</p>
+            )}
+          </div>
+
+          <div className="diagnostics-section">
+            <h4>Environment</h4>
+            <p>{diagnostics.checks.environment?.message}</p>
+            <p>OS: {diagnostics.checks.environment?.isParrotOS ? "ParrotOS" : 
+                    diagnostics.checks.environment?.isLinux ? "Linux" : "Other"}</p>
+          </div>
+
+          {diagnostics.recommendations?.length > 0 && (
+            <div className="diagnostics-section recommendations">
+              <h4>Recommendations</h4>
+              {diagnostics.recommendations.map((rec, i) => (
+                <div key={i} className={`recommendation priority-${rec.priority}`}>
+                  <strong>[{rec.priority.toUpperCase()}] {rec.category}</strong>
+                  <p>{rec.message}</p>
+                  <p className="action">→ {rec.action}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="diagnostics-section">
+            <h4>Full Report</h4>
+            <pre className="diagnostics-report">{reportText}</pre>
+            <button
+              type="button"
+              className="copy-report-button"
+              onClick={() => {
+                navigator.clipboard.writeText(reportText);
+              }}
+            >
+              📋 Copy Report
+            </button>
+          </div>
+        </div>
+
+        <div className="voice-diagnostics-footer">
+          <p>See <strong>VOICE_SETUP_PARROTOS.md</strong> in the project root for detailed setup instructions.</p>
+          <button
+            type="button"
+            className="voice-diagnostics-ok"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
