@@ -187,6 +187,15 @@ class AgentToolbox:
             "inside the directory",
             "within the folder",
             "within the directory",
+            "search in files",
+            "search for",
+            "find in files",
+            "replace in files",
+            "search and replace",
+            "find and replace",
+            "file tree",
+            "project tree",
+            "directory tree",
         ]
         return any(phrase in lower for phrase in phrases)
 
@@ -196,6 +205,67 @@ class AgentToolbox:
             path = self._extract_path_from_query(user_message)
             lower = user_message.lower()
 
+            # Check if asking for file tree
+            if any(phrase in lower for phrase in ["file tree", "project tree", "directory tree", "show tree", "get tree"]):
+                result = self.filesystem_plugin.get_file_tree(folder=path or None, max_depth=5)
+                if result["success"]:
+                    tree = result.get("tree", {})
+                    root = result.get("root", "root")
+                    content = f"🌳 **File tree for `{root}`:**\n\n"
+                    content += self._format_tree_node(tree, indent=0)
+                    return ToolResult(name="File Tree", content=content)
+                else:
+                    return ToolResult(name="File System", content=f"❌ Error: {result.get('error', 'Unknown error')}")
+
+            # Check if asking for search in files
+            if any(phrase in lower for phrase in ["search in files", "search for", "find in files", "find all"]):
+                pattern = self._extract_search_pattern(user_message)
+                if pattern:
+                    result = self.filesystem_plugin.search_in_files(
+                        pattern=pattern,
+                        folder=path or None,
+                        use_regex=False,
+                        limit=50,
+                    )
+                    if result["success"]:
+                        matches = result.get("results", [])
+                        count = result.get("matches_found", 0)
+                        files_searched = result.get("files_searched", 0)
+                        content = f"🔍 **Search results for `{pattern}`:**\n\n"
+                        content += f"*Found {count} matches in {files_searched} files*\n\n"
+                        if matches:
+                            for match in matches[:20]:
+                                content += f"📄 `{match['file']}` line {match['line']}\n"
+                                content += f"   `{match['content']}`\n\n"
+                            if count > 20:
+                                content += f"*... and {count - 20} more matches*\n"
+                        return ToolResult(name="Search Results", content=content)
+                    else:
+                        return ToolResult(name="File System", content=f"❌ Error: {result.get('error', 'Unknown error')}")
+
+            # Check if asking for replace in files
+            if any(phrase in lower for phrase in ["replace in files", "search and replace", "find and replace"]):
+                search_pattern = self._extract_search_pattern(user_message)
+                replacement = self._extract_replacement_text(user_message)
+                if search_pattern and replacement:
+                    result = self.filesystem_plugin.replace_in_files(
+                        search_pattern=search_pattern,
+                        replacement=replacement,
+                        folder=path or None,
+                    )
+                    if result["success"]:
+                        files_modified = result.get("files_modified", 0)
+                        total_replacements = result.get("total_replacements", 0)
+                        modified_files = result.get("modified_files", [])
+                        content = f"✏️ **Replace results:**\n\n"
+                        content += f"*Modified {files_modified} files, {total_replacements} replacements*\n\n"
+                        if modified_files:
+                            for mf in modified_files:
+                                content += f"📄 `{mf['file']}` - {mf['replacements']} replacements\n"
+                        return ToolResult(name="Replace Results", content=content)
+                    else:
+                        return ToolResult(name="File System", content=f"❌ Error: {result.get('error', 'Unknown error')}")
+
             # Check if asking for folder/directory count
             if any(phrase in lower for phrase in ["how many folders", "how many directories", "count folders", "count directories"]):
                 result = self.filesystem_plugin.list_directories(folder=path or None, recursive=False, limit=1000)
@@ -203,16 +273,16 @@ class AgentToolbox:
                     directories = result.get("directories", [])
                     count = len(directories)
                     folder = result.get("folder", "root")
-                    content = f"**Total folders in {folder}: {count}**\n\n"
+                    content = f"📁 **Total folders in `{folder}`:** **{count}**\n\n"
                     if directories:
-                        content += "Folders:\n"
+                        content += "🗂️ **Folders:**\n"
                         for d in directories[:50]:
-                            content += f"  • {d}\n"
+                            content += f"  📂 `{d}`\n"
                         if count > 50:
-                            content += f"\n... and {count - 50} more folders"
+                            content += f"\n*... and {count - 50} more folders*"
                     return ToolResult(name="File System", content=content)
                 else:
-                    return ToolResult(name="File System", content=f"Error: {result.get('error', 'Unknown error')}")
+                    return ToolResult(name="File System", content=f"❌ Error: {result.get('error', 'Unknown error')}")
 
             # Check if asking for file count
             if "how many" in lower or "count" in lower:
@@ -247,13 +317,13 @@ class AgentToolbox:
                 if result["success"]:
                     directories = result.get("directories", [])
                     folder = result.get("folder", "root")
-                    content = f"**Folders in {folder}** ({len(directories)} total)\n\n"
+                    content = f"📂 **Folders in `{folder}`** *({len(directories)} total)*\n\n"
                     if directories:
                         for d in directories[:50]:
-                            content += f"  • {d}\n"
+                            content += f"  📁 `{d}`\n"
                     return ToolResult(name="File System", content=content)
                 else:
-                    return ToolResult(name="File System", content=f"Error: {result.get('error', 'Unknown error')}")
+                    return ToolResult(name="File System", content=f"❌ Error: {result.get('error', 'Unknown error')}")
 
             # Default: list files
             # Try Project Indexer first
@@ -272,33 +342,33 @@ class AgentToolbox:
             return ToolResult(name="File System", content=f"Error: {str(e)}")
 
     def _format_file_count_result(self, result: dict) -> ToolResult:
-        """Format file count result with categories"""
+        """Format file count result with categories and nice formatting"""
         total = result.get("total_files", 0)
         folder = result.get("folder", "root")
-        content = f"**Total files in {folder}: {total}**\n\n"
-        
+        content = f"📊 **Total files in `{folder}`:** **{total}**\n\n"
+
         categories = result.get("by_category", {})
         if categories:
-            content += "Files by category:\n"
+            content += "📁 **Files by category:**\n"
             for cat, count in sorted(categories.items(), key=lambda x: x[1], reverse=True):
-                content += f"  • {cat}: {count}\n"
-        
+                content += f"  • `{cat}`: *{count}*\n"
+
         extensions = result.get("by_extension", {})
         if extensions:
-            content += "\nTop file types:\n"
+            content += "\n📄 **Top file types:**\n"
             for ext, count in sorted(extensions.items(), key=lambda x: x[1], reverse=True)[:5]:
                 ext_display = ext if ext else "(no extension)"
-                content += f"  • {ext_display}: {count}\n"
-        
+                content += f"  • `{ext_display}`: *{count}*\n"
+
         return ToolResult(name="File System", content=content)
 
     def _format_file_list_result(self, result: dict) -> ToolResult:
-        """Format file list result"""
+        """Format file list result with nice formatting"""
         folder = result.get("folder", "root")
         files = result.get("files", [])
         count = result.get("count", len(files))
-        
-        content = f"**Files in {folder}** ({count} total)\n\n"
+
+        content = f"📂 **Files in `{folder}`** *({count} total)*\n\n"
         if files:
             for f in files[:30]:
                 # Handle both dict and string formats
@@ -310,13 +380,13 @@ class AgentToolbox:
                         size_str = f"{size} B"
                     else:
                         size_str = f"{size_mb:.2f} MB"
-                    content += f"  • {name} ({size_str})\n"
+                    content += f"  📄 `{name}` *({size_str})*\n"
                 else:
-                    content += f"  • {f}\n"
-            
+                    content += f"  📄 `{f}`\n"
+
             if count > 30:
-                content += f"\n... and {count - 30} more files"
-        
+                content += f"\n*... and {count - 30} more files*"
+
         return ToolResult(name="File System", content=content)
 
     def _extract_path_from_query(self, user_message: str) -> str:
@@ -407,3 +477,57 @@ class AgentToolbox:
             seen.add(result.name)
             deduped.append(result)
         return deduped
+
+    def _format_tree_node(self, node: dict, indent: int = 0) -> str:
+        """Format tree node recursively"""
+        if not node:
+            return ""
+        
+        prefix = "  " * indent
+        if node.get("type") == "directory":
+            result = f"{prefix}📁 `{node.get('name', 'root')}/`\n"
+            children = node.get("children", [])
+            for child in children:
+                result += self._format_tree_node(child, indent + 1)
+            return result
+        else:
+            name = node.get("name", "unknown")
+            size = node.get("size", 0)
+            size_str = f" ({size} B)" if size > 0 else ""
+            return f"{prefix}📄 `{name}`{size_str}\n"
+
+    def _extract_search_pattern(self, user_message: str) -> str:
+        """Extract search pattern from query"""
+        import re
+        lower = user_message.lower()
+        
+        # Patterns like "search for X", "find X", "search X in files"
+        patterns = [
+            r"(?:search|find|look for)\s+(?:the\s+)?(?:text\s+)?['\"]?([^'\"]+?)['\"]?(?:\s+in|\s+for|\s+of|$)",
+            r"(?:search|find)\s+(?:for\s+)?['\"]?([\w.-]+)['\"]?",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, lower)
+            if match:
+                return match.group(1).strip()
+        
+        return ""
+
+    def _extract_replacement_text(self, user_message: str) -> str:
+        """Extract replacement text from query"""
+        import re
+        lower = user_message.lower()
+        
+        # Patterns like "replace with X", "replace X with Y"
+        patterns = [
+            r"replace\s+(?:with\s+)?['\"]?([^'\"]+?)['\"]?",
+            r"with\s+['\"]?([^'\"]+?)['\"]?",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, lower)
+            if match:
+                return match.group(1).strip()
+        
+        return ""

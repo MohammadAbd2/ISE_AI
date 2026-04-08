@@ -3,6 +3,7 @@ import ChatLayout from "./components/ChatLayout";
 import Composer from "./components/Composer";
 import DashboardView from "./components/DashboardView";
 import MessageList from "./components/MessageList";
+import TerminalPanel from "./components/TerminalPanel";
 import { api, executeEvolutionTool, fetchJson } from "./lib/api";
 import {
   buildVisualizationArtifacts,
@@ -65,6 +66,7 @@ export default function App() {
   const [copiedKey, setCopiedKey] = useState("");
   const [mode, setMode] = useState("auto");
   const [activeView, setActiveView] = useState("chat");
+  const [showIndexedFiles, setShowIndexedFiles] = useState(false);
   const [tokenUsage, setTokenUsage] = useState({
     inputTokens: 0,
     outputTokens: 0,
@@ -186,6 +188,14 @@ export default function App() {
     }
   }
 
+  async function refreshIndexedFiles() {
+    const latestArtifacts = await loadArtifacts(currentContextId());
+    // Auto-close modal if no artifacts
+    if (latestArtifacts.length === 0) {
+      setShowIndexedFiles(false);
+    }
+  }
+
   async function saveProfile() {
     try {
       const data = await fetchJson(api.profile, {
@@ -246,6 +256,7 @@ export default function App() {
     setCopiedKey("");
     setActiveVisualization(null);
     setArtifacts([]);
+    setShowIndexedFiles(false);
     resetTokenUsage();
   }
 
@@ -333,7 +344,7 @@ export default function App() {
       }
       setPendingAttachments((current) => [...current, ...uploaded]);
       const latestArtifacts = await loadArtifacts(currentContextId());
-      setActiveView("dashboard");
+      // Don't redirect to dashboard - stay in chat
       if (uploaded.length > 0) {
         setMessages((current) => [
           ...current,
@@ -779,8 +790,83 @@ export default function App() {
             responseEffort={responseEffort}
             onResponseEffortChange={setResponseEffort}
             indexedFiles={artifacts}
-            onViewIndexedFiles={() => setActiveView("dashboard")}
+            onViewIndexedFiles={() => setShowIndexedFiles(!showIndexedFiles)}
+            onRefreshIndexedFiles={refreshIndexedFiles}
           />
+
+          {/* Indexed Files Modal */}
+          {showIndexedFiles && (
+            <div className="indexed-files-modal" style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              maxWidth: '600px',
+              maxHeight: '80vh',
+              overflow: 'auto',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0 }}>📁 Indexed Files ({artifacts.length})</h3>
+                <button
+                  onClick={() => setShowIndexedFiles(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '20px',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {artifacts.map((artifact) => (
+                  <div
+                    key={artifact.id}
+                    style={{
+                      padding: '12px',
+                      background: '#f5f5f5',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      handleOpenArtifact(artifact);
+                      setShowIndexedFiles(false);
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{artifact.title}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>{artifact.kind}</div>
+                    {artifact.preview && (
+                      <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                        {artifact.preview.substring(0, 100)}...
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {showIndexedFiles && (
+            <div
+              className="indexed-files-modal-backdrop"
+              onClick={() => setShowIndexedFiles(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.5)',
+                zIndex: 999,
+              }}
+            />
+          )}
         </div>
       }
       dashboardContent={
@@ -797,6 +883,7 @@ export default function App() {
           onRunOperation={runDashboardOperation}
         />
       }
+      terminalContent={<TerminalPanel visible={true} />}
     />
   );
 }

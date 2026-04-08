@@ -16,7 +16,21 @@
       "Bash(npx *)",
       "Bash(./gradlew *)",
       "Bash(ls *)",
-      "Bash(mv *)"
+      "Bash(mv *)",
+      "WebSearch",
+      "WebFetch(skywork.ai)",
+      "WebFetch(www.javacodegeeks.com)",
+      "WebFetch(tasmayshah12.medium.com)",
+      "WebFetch(www.abdulazizahwan.com)",
+      "WebFetch(chriscreateswithai.com)",
+      "WebFetch(digitalsoftwarelabs.com)",
+      "WebFetch(dev.to)",
+      "WebFetch(www.founderland.ai)",
+      "WebFetch(medium.com)",
+      "WebFetch(lasserouhiainen.com)",
+      "WebFetch(introl.com)",
+      "WebFetch(aimsys.us)",
+      "WebFetch(www.deployhq.com)"
     ]
   },
   "$version": 3

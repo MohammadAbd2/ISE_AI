@@ -97,3 +97,59 @@ try:
     print("✅ Project indexing endpoints loaded (Fast filesystem queries)")
 except Exception as e:
     print(f"⚠️  Could not load project indexing routes: {e}")
+
+# Include Git integration routes
+try:
+    from app.api.git_routes import router as git_router
+    app.include_router(git_router)
+    print("✅ Git integration endpoints loaded (status, commit, branch, push, pull, log, blame)")
+except Exception as e:
+    print(f"⚠️  Could not load git routes: {e}")
+
+# Include Terminal routes
+try:
+    from app.api.terminal_routes import router as terminal_router
+    app.include_router(terminal_router)
+    print("✅ Terminal integration endpoints loaded (run commands, error analysis)")
+except Exception as e:
+    print(f"⚠️  Could not load terminal routes: {e}")
+
+# Include Semantic Search routes
+try:
+    from app.api.search_routes import router as search_router
+    app.include_router(search_router)
+    print("✅ Semantic code search endpoints loaded")
+except Exception as e:
+    print(f"⚠️  Could not load search routes: {e}")
+
+# Include MCP routes
+try:
+    from app.api.mcp_routes import router as mcp_router
+    app.include_router(mcp_router)
+    print("✅ MCP (Model Context Protocol) endpoints loaded")
+except Exception as e:
+    print(f"⚠️  Could not load MCP routes: {e}")
+
+# Include LSP routes
+try:
+    from app.api.lsp_routes import router as lsp_router
+    app.include_router(lsp_router)
+    print("✅ LSP (Language Server Protocol) endpoints loaded")
+except Exception as e:
+    print(f"⚠️  Could not load LSP routes: {e}")
+
+# Include Collaboration routes
+try:
+    from app.api.collaboration_routes import router as collab_router
+    app.include_router(collab_router)
+    print("✅ Real-time collaboration endpoints loaded")
+except Exception as e:
+    print(f"⚠️  Could not load collaboration routes: {e}")
+
+# Include Browser routes
+try:
+    from app.api.browser_routes import router as browser_router
+    app.include_router(browser_router)
+    print("✅ Embedded browser endpoints loaded")
+except Exception as e:
+    print(f"⚠️  Could not load browser routes: {e}")

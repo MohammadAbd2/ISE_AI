@@ -310,6 +310,159 @@ class DynamicToolRegistry:
                 return_type="dict",
                 category="artifacts",
             ),
+            # Git Operations
+            Tool(
+                name="git_status",
+                description="Get git repository status (branch, staged/unstaged changes, untracked files)",
+                function_ref="git_integration.get_status",
+                parameters={},
+                return_type="dict",
+                category="git",
+            ),
+            Tool(
+                name="git_commit",
+                description="Stage files and create a git commit",
+                function_ref="git_integration.commit",
+                parameters={
+                    "message": {"type": "string", "description": "Commit message"},
+                    "files": {"type": "array", "description": "Files to stage (optional)"},
+                },
+                return_type="bool",
+                category="git",
+            ),
+            Tool(
+                name="git_branch_create",
+                description="Create a new git branch",
+                function_ref="git_integration.create_branch",
+                parameters={
+                    "branch_name": {"type": "string", "description": "New branch name"},
+                    "from_branch": {"type": "string", "description": "Branch to create from (optional)"},
+                },
+                return_type="bool",
+                category="git",
+            ),
+            Tool(
+                name="git_branch_checkout",
+                description="Switch to a git branch",
+                function_ref="git_integration.checkout_branch",
+                parameters={
+                    "branch_name": {"type": "string", "description": "Branch to checkout"},
+                },
+                return_type="bool",
+                category="git",
+            ),
+            Tool(
+                name="git_branches",
+                description="List all git branches",
+                function_ref="git_integration.list_branches",
+                parameters={},
+                return_type="array",
+                category="git",
+            ),
+            Tool(
+                name="git_push",
+                description="Push to remote git repository",
+                function_ref="git_integration.push",
+                parameters={
+                    "remote": {"type": "string", "description": "Remote name (default: origin)"},
+                    "branch": {"type": "string", "description": "Branch name (optional)"},
+                },
+                return_type="bool",
+                category="git",
+            ),
+            Tool(
+                name="git_pull",
+                description="Pull from remote git repository",
+                function_ref="git_integration.pull",
+                parameters={
+                    "remote": {"type": "string", "description": "Remote name (default: origin)"},
+                    "branch": {"type": "string", "description": "Branch name (optional)"},
+                },
+                return_type="bool",
+                category="git",
+            ),
+            Tool(
+                name="git_log",
+                description="Get git commit history",
+                function_ref="git_integration.get_log",
+                parameters={
+                    "count": {"type": "integer", "description": "Number of commits (default: 20)"},
+                },
+                return_type="array",
+                category="git",
+            ),
+            Tool(
+                name="git_diff",
+                description="Get git diff of unstaged changes",
+                function_ref="git_integration.get_diff",
+                parameters={
+                    "file_path": {"type": "string", "description": "File path (optional)"},
+                },
+                return_type="str",
+                category="git",
+            ),
+            Tool(
+                name="git_commit_suggestion",
+                description="Generate a commit message based on current changes",
+                function_ref="git_integration.generate_commit_message",
+                parameters={},
+                return_type="dict",
+                category="git",
+            ),
+            # Advanced File Operations
+            Tool(
+                name="search_in_files",
+                description="Search for text or regex pattern across multiple files in the project",
+                function_ref="filesystem_plugin.search_in_files",
+                parameters={
+                    "pattern": {"type": "string", "description": "Text or regex pattern"},
+                    "folder": {"type": "string", "description": "Folder to search in (optional)"},
+                    "use_regex": {"type": "boolean", "description": "Use regex pattern"},
+                    "case_sensitive": {"type": "boolean", "description": "Case sensitive search"},
+                    "limit": {"type": "integer", "description": "Maximum results (default: 50)"},
+                },
+                return_type="dict",
+                category="file_io",
+            ),
+            Tool(
+                name="replace_in_files",
+                description="Search and replace text across multiple files",
+                function_ref="filesystem_plugin.replace_in_files",
+                parameters={
+                    "search_pattern": {"type": "string", "description": "Text or regex to search"},
+                    "replacement": {"type": "string", "description": "Replacement text"},
+                    "folder": {"type": "string", "description": "Folder to search in (optional)"},
+                    "use_regex": {"type": "boolean", "description": "Use regex pattern"},
+                    "case_sensitive": {"type": "boolean", "description": "Case sensitive search"},
+                    "file_pattern": {"type": "string", "description": "File pattern filter (e.g., *.py)"},
+                },
+                return_type="dict",
+                category="file_io",
+            ),
+            Tool(
+                name="get_file_tree",
+                description="Get file tree structure for the project or a specific folder",
+                function_ref="filesystem_plugin.get_file_tree",
+                parameters={
+                    "folder": {"type": "string", "description": "Folder to get tree for (optional)"},
+                    "max_depth": {"type": "integer", "description": "Maximum depth (default: 5)"},
+                    "include_hidden": {"type": "boolean", "description": "Include hidden files"},
+                },
+                return_type="dict",
+                category="file_io",
+            ),
+            # Semantic Code Search
+            Tool(
+                name="semantic_code_search",
+                description="Search code intelligently using semantic understanding (functions, classes, imports, keywords)",
+                function_ref="semantic_search.search",
+                parameters={
+                    "query": {"type": "string", "description": "Search query (function name, keyword, concept)"},
+                    "limit": {"type": "integer", "description": "Maximum results (default: 20)"},
+                },
+                return_type="dict",
+                category="search",
+            ),
         ]
 
     def register(self, tool: Tool) -> dict:
@@ -535,6 +688,92 @@ class DynamicToolRegistry:
                     for message in messages[-8:]
                 ],
             }
+
+        # Git operations
+        git = get_git_integration()
+        if git and git.is_git_repo():
+            if tool_name == "git_status":
+                status = await git.get_status()
+                return {
+                    "status": "success",
+                    "branch": status.branch,
+                    "is_clean": status.is_clean,
+                    "staged": status.staged_changes,
+                    "unstaged": status.unstaged_changes,
+                    "untracked": status.untracked_files,
+                }
+            if tool_name == "git_commit":
+                if kwargs.get("files"):
+                    await git.stage_files(kwargs["files"])
+                success = await git.commit(kwargs["message"])
+                return {"status": "success" if success else "failed", "committed": success}
+            if tool_name == "git_branch_create":
+                success = await git.create_branch(kwargs["branch_name"], kwargs.get("from_branch", ""))
+                return {"status": "success" if success else "failed", "branch": kwargs["branch_name"]}
+            if tool_name == "git_branch_checkout":
+                success = await git.checkout_branch(kwargs["branch_name"])
+                return {"status": "success" if success else "failed", "branch": kwargs["branch_name"]}
+            if tool_name == "git_branches":
+                branches = await git.list_branches()
+                return {"status": "success", "branches": branches}
+            if tool_name == "git_push":
+                success = await git.push(kwargs.get("remote", "origin"), kwargs.get("branch", ""))
+                return {"status": "success" if success else "failed"}
+            if tool_name == "git_pull":
+                success = await git.pull(kwargs.get("remote", "origin"), kwargs.get("branch", ""))
+                return {"status": "success" if success else "failed"}
+            if tool_name == "git_log":
+                commits = await git.get_log(kwargs.get("count", 20))
+                return {"status": "success", "commits": commits, "count": len(commits)}
+            if tool_name == "git_diff":
+                diff = await git.get_diff(kwargs.get("file_path", ""))
+                return {"status": "success", "diff": diff[:5000] if diff else ""}
+            if tool_name == "git_commit_suggestion":
+                suggestion = await git.generate_commit_message()
+                return {"status": "success", "message": suggestion.message, "type": suggestion.type}
+
+        # Filesystem plugin operations
+        from app.plugins.filesystem.plugin import FileSystemPlugin
+        import os
+        fs_plugin = FileSystemPlugin(os.getcwd())
+        
+        if tool_name == "search_in_files":
+            result = fs_plugin.search_in_files(
+                kwargs.get("pattern", ""),
+                kwargs.get("folder"),
+                kwargs.get("use_regex", False),
+                kwargs.get("case_sensitive", False),
+                kwargs.get("limit", 50),
+            )
+            return result
+        if tool_name == "replace_in_files":
+            result = fs_plugin.replace_in_files(
+                kwargs.get("search_pattern", ""),
+                kwargs.get("replacement", ""),
+                kwargs.get("folder"),
+                kwargs.get("use_regex", False),
+                kwargs.get("case_sensitive", False),
+                kwargs.get("file_pattern"),
+            )
+            return result
+        if tool_name == "get_file_tree":
+            result = fs_plugin.get_file_tree(
+                kwargs.get("folder"),
+                kwargs.get("max_depth", 5),
+                kwargs.get("include_hidden", False),
+            )
+            return result
+
+        # Semantic code search
+        from app.services.semantic_search import get_semantic_search
+        semantic_search = get_semantic_search()
+        
+        if tool_name == "semantic_code_search":
+            result = semantic_search.search(
+                kwargs.get("query", ""),
+                kwargs.get("limit", 20),
+            )
+            return result
 
         if tool_name in self.tool_functions:
             result = self.tool_functions[tool_name](**kwargs)

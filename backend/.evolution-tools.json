@@ -301,5 +301,264 @@
     "category": "artifacts",
     "version": "1.0.0",
     "enabled": true
+  },
+  "git_status": {
+    "name": "git_status",
+    "description": "Get git repository status (branch, staged/unstaged changes, untracked files)",
+    "function_ref": "git_integration.get_status",
+    "parameters": {},
+    "return_type": "dict",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_commit": {
+    "name": "git_commit",
+    "description": "Stage files and create a git commit",
+    "function_ref": "git_integration.commit",
+    "parameters": {
+      "message": {
+        "type": "string",
+        "description": "Commit message"
+      },
+      "files": {
+        "type": "array",
+        "description": "Files to stage (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_branch_create": {
+    "name": "git_branch_create",
+    "description": "Create a new git branch",
+    "function_ref": "git_integration.create_branch",
+    "parameters": {
+      "branch_name": {
+        "type": "string",
+        "description": "New branch name"
+      },
+      "from_branch": {
+        "type": "string",
+        "description": "Branch to create from (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_branch_checkout": {
+    "name": "git_branch_checkout",
+    "description": "Switch to a git branch",
+    "function_ref": "git_integration.checkout_branch",
+    "parameters": {
+      "branch_name": {
+        "type": "string",
+        "description": "Branch to checkout"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_branches": {
+    "name": "git_branches",
+    "description": "List all git branches",
+    "function_ref": "git_integration.list_branches",
+    "parameters": {},
+    "return_type": "array",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_push": {
+    "name": "git_push",
+    "description": "Push to remote git repository",
+    "function_ref": "git_integration.push",
+    "parameters": {
+      "remote": {
+        "type": "string",
+        "description": "Remote name (default: origin)"
+      },
+      "branch": {
+        "type": "string",
+        "description": "Branch name (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_pull": {
+    "name": "git_pull",
+    "description": "Pull from remote git repository",
+    "function_ref": "git_integration.pull",
+    "parameters": {
+      "remote": {
+        "type": "string",
+        "description": "Remote name (default: origin)"
+      },
+      "branch": {
+        "type": "string",
+        "description": "Branch name (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_log": {
+    "name": "git_log",
+    "description": "Get git commit history",
+    "function_ref": "git_integration.get_log",
+    "parameters": {
+      "count": {
+        "type": "integer",
+        "description": "Number of commits (default: 20)"
+      }
+    },
+    "return_type": "array",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_diff": {
+    "name": "git_diff",
+    "description": "Get git diff of unstaged changes",
+    "function_ref": "git_integration.get_diff",
+    "parameters": {
+      "file_path": {
+        "type": "string",
+        "description": "File path (optional)"
+      }
+    },
+    "return_type": "str",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_commit_suggestion": {
+    "name": "git_commit_suggestion",
+    "description": "Generate a commit message based on current changes",
+    "function_ref": "git_integration.generate_commit_message",
+    "parameters": {},
+    "return_type": "dict",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "search_in_files": {
+    "name": "search_in_files",
+    "description": "Search for text or regex pattern across multiple files in the project",
+    "function_ref": "filesystem_plugin.search_in_files",
+    "parameters": {
+      "pattern": {
+        "type": "string",
+        "description": "Text or regex pattern"
+      },
+      "folder": {
+        "type": "string",
+        "description": "Folder to search in (optional)"
+      },
+      "use_regex": {
+        "type": "boolean",
+        "description": "Use regex pattern"
+      },
+      "case_sensitive": {
+        "type": "boolean",
+        "description": "Case sensitive search"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum results (default: 50)"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "replace_in_files": {
+    "name": "replace_in_files",
+    "description": "Search and replace text across multiple files",
+    "function_ref": "filesystem_plugin.replace_in_files",
+    "parameters": {
+      "search_pattern": {
+        "type": "string",
+        "description": "Text or regex to search"
+      },
+      "replacement": {
+        "type": "string",
+        "description": "Replacement text"
+      },
+      "folder": {
+        "type": "string",
+        "description": "Folder to search in (optional)"
+      },
+      "use_regex": {
+        "type": "boolean",
+        "description": "Use regex pattern"
+      },
+      "case_sensitive": {
+        "type": "boolean",
+        "description": "Case sensitive search"
+      },
+      "file_pattern": {
+        "type": "string",
+        "description": "File pattern filter (e.g., *.py)"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "get_file_tree": {
+    "name": "get_file_tree",
+    "description": "Get file tree structure for the project or a specific folder",
+    "function_ref": "filesystem_plugin.get_file_tree",
+    "parameters": {
+      "folder": {
+        "type": "string",
+        "description": "Folder to get tree for (optional)"
+      },
+      "max_depth": {
+        "type": "integer",
+        "description": "Maximum depth (default: 5)"
+      },
+      "include_hidden": {
+        "type": "boolean",
+        "description": "Include hidden files"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "semantic_code_search": {
+    "name": "semantic_code_search",
+    "description": "Search code intelligently using semantic understanding (functions, classes, imports, keywords)",
+    "function_ref": "semantic_search.search",
+    "parameters": {
+      "query": {
+        "type": "string",
+        "description": "Search query (function name, keyword, concept)"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum results (default: 20)"
+      }
+    },
+    "return_type": "dict",
+    "category": "search",
+    "version": "1.0.0",
+    "enabled": true
   }
 }

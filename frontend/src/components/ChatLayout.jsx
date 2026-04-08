@@ -21,6 +21,7 @@ export default function ChatLayout({
   onViewChange,
   chatContent,
   dashboardContent,
+  terminalContent,
 }) {
   return (
     <div className="app-shell">
@@ -39,17 +40,12 @@ export default function ChatLayout({
           <button type="button" className={activeView === "chat" ? "active" : ""} onClick={() => onViewChange("chat")}>
             Chat
           </button>
+          <button type="button" className={activeView === "terminal" ? "active" : ""} onClick={() => onViewChange("terminal")}>
+            ⌨️ Terminal
+          </button>
         </nav>
         <div className="topbar-actions">
-          <select value={activeModel} onChange={(event) => onModelChange(event.target.value)}>
-            {models.map((model) => <option key={model} value={model}>{model}</option>)}
-          </select>
-          <select value={responseEffort} onChange={(event) => onResponseEffortChange(event.target.value)}>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-          <button type="button" className="ghost-button" onClick={onResetChat}>New chat</button>
+          {/* Empty - model and effort selectors moved to Composer */}
         </div>
       </header>
       <div className="workspace">
@@ -60,8 +56,13 @@ export default function ChatLayout({
                 <p className="eyebrow">Sessions</p>
                 <h2>{messageCount > 1 ? `${messageCount - 1} messages` : "Ready"}</h2>
               </div>
-              <button type="button" className="ghost-button danger-ghost" onClick={onClearHistory}>Clear</button>
+              <button type="button" className="ghost-button danger-ghost" onClick={onClearHistory}>Clear All</button>
             </div>
+            {/* New Chat Button */}
+            <button type="button" className="new-chat-button" onClick={onResetChat}>
+              <span className="new-chat-icon">+</span>
+              <span>New Chat</span>
+            </button>
             <div className="history-list">
               {sessions.map((session) => (
                 <article key={session.id} className={`history-card ${session.id === currentSessionId ? "active" : ""}`}>
@@ -96,7 +97,7 @@ export default function ChatLayout({
           </section>
         </aside>
         <main className="main-stage">
-          {activeView === "dashboard" ? dashboardContent : chatContent}
+          {activeView === "dashboard" ? dashboardContent : activeView === "terminal" ? terminalContent : chatContent}
         </main>
       </div>
     </div>

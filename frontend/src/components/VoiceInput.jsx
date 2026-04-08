@@ -35,20 +35,18 @@ function classifyTranscript(transcript) {
 function normalizeVoiceError(errorCode) {
   switch (errorCode) {
     case "network":
-      return "Network error: Speech recognition requires internet access. On restricted networks (ParrotOS, VPNs), try: 1) Allow microphone permission, 2) Check firewall settings, 3) Try a different browser, or 4) Use text input.";
+      return "Voice recognition requires internet (Chrome/Edge use Google's servers). Please check your connection or use text input.";
     case "not-allowed":
     case "service-not-allowed":
-      return "Microphone permission blocked. Click the 🔒 icon in the address bar and select 'Allow' for microphone access.";
+      return "Microphone permission blocked. Please allow microphone access in your browser settings.";
     case "no-speech":
-      return "No speech detected. Please speak clearly, closer to the microphone, and ensure the background is quiet.";
+      return "No speech detected. Please speak clearly and ensure the background is quiet.";
     case "audio-capture":
-      return "No microphone found. Please connect a microphone, check system audio settings, and refresh the page.";
+      return "No microphone found. Please connect a microphone and check system audio settings.";
     case "aborted":
       return "";
-    case "service-not-allowed-permission":
-      return "Speech service not available. Check browser settings: Settings → Privacy → Site Settings → Microphone → Allow.";
     default:
-      return `Voice error (${errorCode}). If this persists on a restricted network, please use text input.`;
+      return `Voice recognition error. Please try again or use text input.`;
   }
 }
 
@@ -60,6 +58,8 @@ export function useVoiceInput(onTextInsert) {
   const [permissionGranted, setPermissionGranted] = useState(null);
   const recognitionRef = useRef(null);
   const retryCountRef = useRef(0);
+  const isStartingRef = useRef(false);
+  const shouldListenRef = useRef(false); // Track if we should keep listening
 
   const checkSupport = useCallback(() => {
     if (typeof window === "undefined") {
@@ -67,23 +67,20 @@ export function useVoiceInput(onTextInsert) {
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
       return false;
     }
 
-    const isLocalhost = window.location.hostname === 'localhost' || 
+    // Support all browsers and platforms
+    const isLocalhost = window.location.hostname === 'localhost' ||
                        window.location.hostname === '127.0.0.1' ||
                        window.location.hostname === '0.0.0.0' ||
                        window.location.protocol === 'file:';
     const isHTTPS = window.location.protocol === 'https:';
-    
-    // Support ParrotOS and other Chromium-based browsers
-    const isChromiumBased = /Chrome|Chromium|Edge|Brave|Opera/.test(navigator.userAgent);
-    const isFirefox = /Firefox/.test(navigator.userAgent);
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
 
-    return (isLocalhost || isHTTPS) && (isChromiumBased || isFirefox || isSafari);
+    // All modern browsers support speech recognition on localhost/HTTPS
+    return isLocalhost || isHTTPS;
   }, []);
 
   const requestMicPermission = useCallback(async () => {
@@ -95,12 +92,12 @@ export function useVoiceInput(onTextInsert) {
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
-      
+
       setPermissionGranted(true);
       return true;
     } catch (err) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError("Microphone permission denied. Please click the 🔒 icon in your browser's address bar and allow microphone access.");
+        setError("Microphone permission denied. Please allow microphone access in your browser settings.");
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setError("No microphone found. Please connect a microphone and try again.");
       } else {
@@ -110,6 +107,134 @@ export function useVoiceInput(onTextInsert) {
       return false;
     }
   }, []);
+
+  const createRecognition = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true; // Keep listening
+    recognition.interimResults = true; // Show results as you speak
+    recognition.lang = "en-US";
+    recognition.maxAlternatives = 3;
+
+    return recognition;
+  }, []);
+
+  const attachRecognitionHandlers = useCallback((recognition) => {
+    if (!recognition) return;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setTranscript("");
+      setError("");
+      retryCountRef.current = 0;
+      isStartingRef.current = false;
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript.trim();
+        } else {
+          interimTranscript += result[0].transcript.trim();
+        }
+      }
+
+      const displayTranscript = finalTranscript || interimTranscript;
+      if (displayTranscript) {
+        setTranscript(displayTranscript);
+      }
+
+      if (finalTranscript) {
+        onTextInsert?.(finalTranscript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error, event);
+
+      if (event.error === "network") {
+        retryCountRef.current += 1;
+
+        // Only retry once, then stop
+        if (retryCountRef.current === 1) {
+          setError("Network error - retrying once...");
+          // Stop and restart with delay
+          try {
+            recognition.stop();
+          } catch (e) {}
+
+          setTimeout(() => {
+            if (retryCountRef.current === 1 && shouldListenRef.current) {
+              try {
+                // Create fresh recognition instance
+                const newRecognition = createRecognition();
+                if (newRecognition) {
+                  recognitionRef.current = newRecognition;
+                  attachRecognitionHandlers(newRecognition);
+                  newRecognition.start();
+                }
+              } catch (e) {
+                console.error("Retry failed:", e);
+                setError("Voice recognition unavailable. Please check your internet connection.");
+                setIsListening(false);
+                isStartingRef.current = false;
+                shouldListenRef.current = false;
+              }
+            }
+          }, 1000);
+          return;
+        } else {
+          // After retry fails, show clear message
+          setError(
+            "Voice recognition requires internet (uses Google's servers). " +
+            "Please check your connection or use text input instead."
+          );
+          setIsListening(false);
+          isStartingRef.current = false;
+          shouldListenRef.current = false;
+          return;
+        }
+      }
+
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        requestMicPermission();
+      }
+
+      if (event.error !== "aborted") {
+        const nextError = normalizeVoiceError(event.error);
+        setError(nextError);
+      }
+      setIsListening(false);
+      isStartingRef.current = false;
+      shouldListenRef.current = false;
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      isStartingRef.current = false;
+      
+      // Only restart if we should still be listening AND no network errors occurred
+      if (shouldListenRef.current && retryCountRef.current === 0) {
+        try {
+          recognition.start();
+          setIsListening(true);
+          isStartingRef.current = true;
+        } catch (e) {
+          // If restart fails, stop listening
+          shouldListenRef.current = false;
+        }
+      } else if (retryCountRef.current > 0) {
+        // Network error occurred, don't restart
+        shouldListenRef.current = false;
+      }
+    };
+  }, [onTextInsert, createRecognition, requestMicPermission]);
 
   useEffect(() => {
     const isSupported = checkSupport();
@@ -125,51 +250,35 @@ export function useVoiceInput(onTextInsert) {
       return undefined;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognition.maxAlternatives = 1;
+    // Create initial recognition instance
+    const recognition = createRecognition();
+    if (recognition) {
+      attachRecognitionHandlers(recognition);
+      recognitionRef.current = recognition;
+    }
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setTranscript("");
-      setError("");
-      retryCountRef.current = 0;
+    // Listen for online/offline events
+    const handleOnline = () => {
+      setError(""); // Clear network error when back online
     };
-
-    recognition.onresult = (event) => {
-      const result = event.results[event.resultIndex];
-      const nextTranscript = result[0].transcript.trim();
-      setTranscript(nextTranscript);
-      
-      if (result.isFinal && nextTranscript) {
-        onTextInsert?.(nextTranscript);
-        setIsListening(false);
+    const handleOffline = () => {
+      setError("You are offline. Voice recognition requires internet connection.");
+      shouldListenRef.current = false;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
       }
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      
-      if (event.error === "not-allowed") {
-        requestMicPermission();
-      }
-      
-      const nextError = normalizeVoiceError(event.error);
-      setError(nextError);
       setIsListening(false);
     };
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      shouldListenRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -177,119 +286,88 @@ export function useVoiceInput(onTextInsert) {
       }
       recognitionRef.current = null;
     };
-  }, [onTextInsert, checkSupport, requestMicPermission]);
+  }, [checkSupport, createRecognition, attachRecognitionHandlers]);
 
   async function startListening() {
-    if (!recognitionRef.current || !supported || isListening) {
+    if (!supported || isListening || isStartingRef.current) {
       return;
     }
 
     setError("");
     setTranscript("");
+    isStartingRef.current = true;
+    shouldListenRef.current = true;
+
+    // Check internet connectivity first
+    if (!navigator.onLine) {
+      setError(
+        "🌐 Voice recognition requires internet connection.\n" +
+        "Chrome/Edge send audio to Google's servers for processing.\n" +
+        "Please connect to the internet or use text input instead."
+      );
+      isStartingRef.current = false;
+      shouldListenRef.current = false;
+      return;
+    }
 
     const hasPermission = await requestMicPermission();
     if (!hasPermission) {
+      isStartingRef.current = false;
+      shouldListenRef.current = false;
       return;
     }
 
     try {
       retryCountRef.current = 0;
-      recognitionRef.current.start();
+
+      // Create fresh recognition instance for each start
+      const recognition = createRecognition();
+      if (!recognition) {
+        setError("Speech recognition not available in this browser.");
+        isStartingRef.current = false;
+        shouldListenRef.current = false;
+        return;
+      }
+
+      // Stop old instance if running
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+
+      // Set up new instance
+      attachRecognitionHandlers(recognition);
+      recognitionRef.current = recognition;
+
+      // Start listening
+      recognition.start();
     } catch (err) {
       console.error("Failed to start recognition:", err);
-      handleStartError(err);
-    }
-  }
+      isStartingRef.current = false;
+      shouldListenRef.current = false;
 
-  function handleStartError(err) {
-    if (err.message?.includes("already started")) {
-      try {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = "en-US";
-        recognitionRef.current.maxAlternatives = 1;
-        
-        attachRecognitionHandlers();
-        
-        recognitionRef.current.start();
-      } catch (retryErr) {
-        setError("Failed to start voice recognition. Please refresh the page and try again.");
-      }
-    } else {
-      setError(`Failed to start voice: ${err.message}`);
-    }
-  }
-
-  function attachRecognitionHandlers() {
-    if (!recognitionRef.current) return;
-    
-    recognitionRef.current.onstart = () => {
-      setIsListening(true);
-      setTranscript("");
-      setError("");
-      retryCountRef.current = 0;
-    };
-
-    recognitionRef.current.onresult = (event) => {
-      const result = event.results[event.resultIndex];
-      const nextTranscript = result[0].transcript.trim();
-      setTranscript(nextTranscript);
-      
-      if (result.isFinal && nextTranscript) {
-        onTextInsert?.(nextTranscript);
-        setIsListening(false);
-      }
-    };
-
-    recognitionRef.current.onerror = (event) => {
-      console.error("Speech recognition error:", event.error, event);
-      
-      if (event.error === "network") {
-        retryCountRef.current += 1;
-        
-        if (retryCountRef.current <= 2) {
-          setError(`Network error - retrying (${retryCountRef.current}/2)...`);
-          setTimeout(() => {
-            try {
-              recognitionRef.current.stop();
-              setTimeout(() => {
-                try {
-                  recognitionRef.current.start();
-                } catch (e) {
-                  setError("Voice recognition unavailable. Please check your internet connection and try again.");
-                  setIsListening(false);
-                }
-              }, 500);
-            } catch (e) {}
-          }, 1000);
-          return;
-        } else {
-          setError(
-            "Voice recognition requires internet (Chrome/Edge use Google's servers). " +
-            "Please check your connection or use text input instead."
-          );
-          setIsListening(false);
-          return;
+      if (err.message?.includes("already started")) {
+        // Create completely new instance
+        try {
+          const recognition = createRecognition();
+          if (recognition) {
+            attachRecognitionHandlers(recognition);
+            recognitionRef.current = recognition;
+            recognition.start();
+          }
+        } catch (retryErr) {
+          setError("Failed to start voice recognition. Please refresh the page and try again.");
         }
+      } else {
+        setError(`Failed to start voice: ${err.message}`);
       }
-      
-      if (event.error === "not-allowed") {
-        requestMicPermission();
-      }
-      
-      const nextError = normalizeVoiceError(event.error);
-      setError(nextError);
-      setIsListening(false);
-    };
-
-    recognitionRef.current.onend = () => {
-      setIsListening(false);
-    };
+    }
   }
 
   function stopListening() {
+    shouldListenRef.current = false;
+    isStartingRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -325,36 +403,64 @@ export function VoiceInputButton({ onTextInsert }) {
   };
 
   return (
-    <div className={`voice-input-container ${isListening ? "listening" : ""}`}>
+    <div className={`voice-input-wrapper ${isListening ? "listening" : ""}`}>
       <button
         type="button"
-        className={`voice-input-button ${isListening ? "active" : ""}`}
+        className={`voice-button ${isListening ? "active" : ""} ${error ? "error" : ""}`}
         onClick={handleClick}
         title={
-          isListening 
-            ? "Click to stop listening (🎙️)" 
-            : "Click to start voice input (🎙️)"
+          isListening
+            ? "🎙️ Click to stop listening"
+            : "🎙️ Click to start voice input"
         }
         aria-label="Voice input button"
       >
-        <span className="voice-icon">🎙️</span>
-        <span className="voice-label">
-          {isListening ? "Listening..." : "Voice"}
+        {/* Animated rings when listening */}
+        {isListening && (
+          <>
+            <span className="voice-ring ring-1"></span>
+            <span className="voice-ring ring-2"></span>
+            <span className="voice-ring ring-3"></span>
+          </>
+        )}
+        
+        {/* Microphone icon with pulse animation */}
+        <span className={`voice-icon-wrapper ${isListening ? "pulsing" : ""}`}>
+          <svg className="voice-icon-svg" viewBox="0 0 24 24" width="20" height="20">
+            <path
+              fill="currentColor"
+              d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"
+            />
+            <path
+              fill="currentColor"
+              d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"
+            />
+          </svg>
         </span>
+        
+        {/* Status indicator dot */}
+        <span className={`status-dot ${isListening ? "recording" : ""}`}></span>
       </button>
-      
-      {isListening && transcript ? (
-        <div className="voice-transcript">
-          <div className="voice-indicator">●</div>
-          <div className="voice-text">{transcript}</div>
+
+      {/* Transcript tooltip */}
+      {isListening && transcript && (
+        <div className="transcript-tooltip">
+          <div className="transcript-header">
+            <span className="recording-indicator">● Recording</span>
+          </div>
+          <div className="transcript-text">{transcript}</div>
         </div>
-      ) : null}
-      
-      {!isListening && error ? (
-        <div className="voice-error" title={error}>
-          {error.length > 60 ? error.substring(0, 60) + "..." : error}
+      )}
+
+      {/* Error tooltip */}
+      {!isListening && error && (
+        <div className="error-tooltip">
+          <span className="error-icon">⚠️</span>
+          <span className="error-text">
+            {error.length > 50 ? error.substring(0, 50) + "..." : error}
+          </span>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

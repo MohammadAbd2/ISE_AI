@@ -113,3 +113,55 @@ async def get_statistics(
     else:
         result = plugin.get_project_structure()
     return result
+
+
+@router.post("/search-content")
+async def search_in_files(
+    pattern: str = Query(..., description="Text or regex pattern to search"),
+    folder: Optional[str] = Query(None, description="Folder to search in"),
+    use_regex: bool = Query(False, description="Use regex pattern"),
+    case_sensitive: bool = Query(False, description="Case sensitive search"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum results"),
+):
+    """Search for text pattern across multiple files"""
+    return plugin.search_in_files(
+        pattern=pattern,
+        folder=folder,
+        use_regex=use_regex,
+        case_sensitive=case_sensitive,
+        limit=limit,
+    )
+
+
+@router.post("/replace-content")
+async def replace_in_files(
+    search_pattern: str = Query(..., description="Text or regex pattern to search"),
+    replacement: str = Query(..., description="Replacement text"),
+    folder: Optional[str] = Query(None, description="Folder to search in"),
+    use_regex: bool = Query(False, description="Use regex pattern"),
+    case_sensitive: bool = Query(False, description="Case sensitive search"),
+    file_pattern: Optional[str] = Query(None, description="File pattern filter (e.g., *.py)"),
+):
+    """Search and replace text across multiple files"""
+    return plugin.replace_in_files(
+        search_pattern=search_pattern,
+        replacement=replacement,
+        folder=folder,
+        use_regex=use_regex,
+        case_sensitive=case_sensitive,
+        file_pattern=file_pattern,
+    )
+
+
+@router.get("/tree")
+async def get_file_tree(
+    folder: Optional[str] = Query(None, description="Folder to get tree for"),
+    max_depth: int = Query(5, ge=1, le=10, description="Maximum depth"),
+    include_hidden: bool = Query(False, description="Include hidden files"),
+):
+    """Get file tree structure"""
+    return plugin.get_file_tree(
+        folder=folder,
+        max_depth=max_depth,
+        include_hidden=include_hidden,
+    )

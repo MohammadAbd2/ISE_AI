@@ -196,7 +196,7 @@ export default function Composer({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask, upload files, request code changes, or describe data for a chart or 3D map... (use 🎙️ for voice input)"
+          placeholder="Ask anything, request code changes, or describe what you need..."
           rows={4}
           disabled={disabled}
         />

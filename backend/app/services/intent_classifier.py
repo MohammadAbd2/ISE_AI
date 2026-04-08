@@ -46,8 +46,10 @@ class IntentClassifier:
         "src folder", "src directory", "src folder",
         "backend folder", "backend directory", "backend folder",
         "frontend folder", "frontend directory", "frontend folder",
-        "inside the folder", "inside the directory",
         "content of", "read file", "display the content",
+        "search in files", "search for", "find in files",
+        "replace in files", "search and replace", "find and replace",
+        "file tree", "project tree", "directory tree",
     )
     CODING_TERMS = (
         "create file", "write file", "save to", "edit file", "update file", "delete file",

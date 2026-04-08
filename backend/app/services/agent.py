@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import asyncio
 import json
+from pathlib import Path
 from typing import AsyncIterator
 
 from app.models.message import Message
@@ -88,10 +89,20 @@ class ChatAgent:
                 attachments=payload.attachments,
             )
         else:
-            # Check if this is a filesystem query
+            # FIRST: Try to execute simple file creation directly (bypass LLM)
+            file_creation_result = await self._try_execute_file_creation(payload.message)
+            if file_creation_result:
+                response = ChatResponse(
+                    reply=file_creation_result,
+                    model=payload.model or "agent",
+                )
+                await self._learn_from_interaction(payload, response)
+                return response
+
+            # Check if this is a filesystem query (read-only operations)
             intent = self.intent_classifier.classify(payload.message, payload.mode)
             if intent.use_filesystem:
-                # Handle filesystem query directly with toolbox
+                # Handle filesystem query directly with toolbox (read-only: count, list, read)
                 results = await self.toolbox.run_requested_tools(payload.message)
                 if results:
                     reply = self.toolbox.format_direct_reply(results)
@@ -102,19 +113,29 @@ class ChatAgent:
                     await self._learn_from_interaction(payload, response)
                     return response
 
-            # Use regular chat for questions - still run orchestrator to get tools/search
-            orchestration = await self.orchestrator.run(
-                user_message=payload.message,
-                session_id=session_id,
-                attachments=payload.attachments,
-            )
-            decision = AgentDecision(
-                memory_note="",
-                tool_context=orchestration.tool_context if orchestration.tool_context else None,
-                search_logs=orchestration.search_logs or [],
-                image_logs=orchestration.image_logs or [],
-                render_blocks=orchestration.render_blocks or [],
-            )
+            # Check if this is a file creation/editing query (write operations)
+            # These need to go to the coding agent which ACTUALLY creates files
+            if intent.kind == "coding":
+                # Route to coding agent for file creation/editing
+                decision = await self._decide(
+                    payload.message,
+                    session_id=session_id,
+                    attachments=payload.attachments,
+                )
+            else:
+                # Use regular chat for questions - still run orchestrator to get tools/search
+                orchestration = await self.orchestrator.run(
+                    user_message=payload.message,
+                    session_id=session_id,
+                    attachments=payload.attachments,
+                )
+                decision = AgentDecision(
+                    memory_note="",
+                    tool_context=orchestration.tool_context if orchestration.tool_context else None,
+                    search_logs=orchestration.search_logs or [],
+                    image_logs=orchestration.image_logs or [],
+                    render_blocks=orchestration.render_blocks or [],
+                )
 
         if decision.reply is not None:
             response = ChatResponse(
@@ -180,10 +201,10 @@ class ChatAgent:
                 attachments=payload.attachments,
             )
         else:
-            # Check if this is a filesystem query
+            # Check if this is a filesystem query (read-only operations)
             intent = self.intent_classifier.classify(payload.message, payload.mode)
             if intent.use_filesystem:
-                # Handle filesystem query directly with toolbox
+                # Handle filesystem query directly with toolbox (read-only: count, list, read)
                 results = await self.toolbox.run_requested_tools(payload.message)
                 if results:
                     reply = self.toolbox.format_direct_reply(results)
@@ -195,19 +216,40 @@ class ChatAgent:
                         [],
                     )
 
-            # Use regular chat for questions - still run orchestrator to get tools/search
-            orchestration = await self.orchestrator.run(
-                user_message=payload.message,
-                session_id=session_id,
-                attachments=payload.attachments,
-            )
-            decision = AgentDecision(
-                memory_note="",
-                tool_context=orchestration.tool_context if orchestration.tool_context else None,
-                search_logs=orchestration.search_logs or [],
-                image_logs=orchestration.image_logs or [],
-                render_blocks=orchestration.render_blocks or [],
-            )
+            # Check if this is a file creation/editing query (write operations)
+            # These need to go to the coding agent
+            if intent.kind == "coding":
+                # Route to coding agent for file creation/editing
+                decision = await self._decide(
+                    payload.message,
+                    session_id=session_id,
+                    attachments=payload.attachments,
+                )
+            else:
+                # For simple file creation requests, try to execute them directly
+                file_creation_result = await self._try_execute_file_creation(payload.message)
+                if file_creation_result:
+                    return (
+                        self._stream_text(file_creation_result),
+                        payload.model or "agent",
+                        [],
+                        [],
+                        [],
+                    )
+
+                # Use regular chat for questions - still run orchestrator to get tools/search
+                orchestration = await self.orchestrator.run(
+                    user_message=payload.message,
+                    session_id=session_id,
+                    attachments=payload.attachments,
+                )
+                decision = AgentDecision(
+                    memory_note="",
+                    tool_context=orchestration.tool_context if orchestration.tool_context else None,
+                    search_logs=orchestration.search_logs or [],
+                    image_logs=orchestration.image_logs or [],
+                    render_blocks=orchestration.render_blocks or [],
+                )
         
         if decision.reply is not None:
             return (
@@ -485,6 +527,83 @@ class ChatAgent:
 
     def _should_use_agent_mode(self, message: str, mode: str) -> bool:
         return self.intent_classifier.classify(message, mode).use_agent
+
+    async def _try_execute_file_creation(self, user_message: str) -> str | None:
+        """
+        Try to execute a simple file creation request directly.
+        This bypasses the LLM and actually creates the file on disk.
+        """
+        import re
+        from app.services.tool_executor import ToolExecutor
+
+        lower = user_message.lower()
+
+        # Check if this is a file creation request
+        if not any(phrase in lower for phrase in ["create", "write", "make", "new file"]):
+            return None
+
+        # Try to extract filename and content with better patterns
+        # Pattern 1: "create a file called X contain 'Y'" or "create file X with content 'Y'"
+        # Pattern 2: "create a file called X inside Y contain 'Z'"
+        patterns = [
+            # "create a file called filename.txt inside folder contain 'content'"
+            r"(?:create|write|make)\s+(?:a\s+)?(?:new\s+)?file\s+(?:called\s+)?([\w.-]+)\s+(?:inside|in)\s+(?:the\s+)?(?:folder\s+)?([\w./-]+)\s+(?:contain|with\s+content|containing)\s+['\"]([^'\"]+)['\"]",
+            # "create a file called filename.txt contain 'content'"
+            r"(?:create|write|make)\s+(?:a\s+)?(?:new\s+)?file\s+(?:called\s+)?([\w.-]+)\s+(?:contain|with\s+content|containing)\s+['\"]([^'\"]+)['\"]",
+            # "create filename.txt with content 'content'"
+            r"(?:create|write|make)\s+(?:a\s+)?(?:new\s+)?file\s+(?:called\s+)?([\w.-]+)\s+with\s+content\s+['\"]([^'\"]+)['\"]",
+            # "write 'content' to filename.txt"
+            r"(?:write|put)\s+['\"]([^'\"]+)['\"]\s+(?:to|into|in)\s+(?:file\s+)?([\w./-]+)",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, lower)
+            if match:
+                groups = match.groups()
+                
+                if len(groups) == 3:
+                    # Pattern 1: filename, folder, content
+                    filename, folder, content = groups
+                    from app.core.config import settings
+                    project_root = Path(settings.backend_root).parent.parent
+                    file_path = str(project_root / folder / filename)
+                elif len(groups) == 2:
+                    # Check if first group looks like content (has spaces, special chars) or filename
+                    if '.' in groups[0] and len(groups[0]) < 50:
+                        # First group is filename
+                        filename, content = groups
+                        from app.core.config import settings
+                        project_root = Path(settings.backend_root).parent.parent
+                        file_path = str(project_root / filename)
+                    else:
+                        # First group is content, second is filename
+                        content, filename = groups
+                        from app.core.config import settings
+                        project_root = Path(settings.backend_root).parent.parent
+                        file_path = str(project_root / filename)
+                else:
+                    continue
+
+                # Actually create the file
+                try:
+                    executor = ToolExecutor()
+                    result = executor.write_file(file_path, content)
+
+                    if result.get("status") == "success":
+                        return (
+                            f"📝 **Creating file:** `{file_path}`\n\n"
+                            f"**Content:**\n```\n{content}\n```\n\n"
+                            f"✅ **File created successfully!**\n"
+                            f"- **Path:** `{file_path}`\n"
+                            f"- **Size:** {result.get('bytes_written', 0)} bytes\n"
+                            f"- **Lines:** {len(content.splitlines())}"
+                        )
+                    else:
+                        return None
+                except Exception as e:
+                    return None
+
+        return None
 
     async def _learn_from_interaction(self, payload: ChatRequest, response: ChatResponse):
         """Learn from a user interaction to improve future responses."""

@@ -310,10 +310,140 @@ class GitIntegration:
         """Create a commit."""
         if not self.is_git_repo():
             return False
-        
+
         command = f'git commit -m "{message}"'
         result = await self._run_git_command(command)
         return result.returncode == 0
+
+    async def create_branch(self, branch_name: str, from_branch: str = "") -> bool:
+        """Create a new branch."""
+        if not self.is_git_repo():
+            return False
+
+        command = f"git branch {branch_name}"
+        if from_branch:
+            command = f"git checkout -b {branch_name} {from_branch}"
+        else:
+            command = f"git checkout -b {branch_name}"
+        
+        result = await self._run_git_command(command)
+        return result.returncode == 0
+
+    async def checkout_branch(self, branch_name: str) -> bool:
+        """Switch to a branch."""
+        if not self.is_git_repo():
+            return False
+
+        command = f"git checkout {branch_name}"
+        result = await self._run_git_command(command)
+        return result.returncode == 0
+
+    async def list_branches(self) -> list[str]:
+        """List all branches."""
+        if not self.is_git_repo():
+            return []
+
+        command = "git branch"
+        result = await self._run_git_command(command)
+        
+        if result.stdout:
+            branches = []
+            for line in result.stdout.strip().split("\n"):
+                # Remove '* ' prefix for current branch
+                branch = line.replace("* ", "").strip()
+                if branch:
+                    branches.append(branch)
+            return branches
+        return []
+
+    async def push(self, remote: str = "origin", branch: str = "") -> bool:
+        """Push to remote."""
+        if not self.is_git_repo():
+            return False
+
+        command = f"git push {remote}"
+        if branch:
+            command += f" {branch}"
+        
+        result = await self._run_git_command(command)
+        return result.returncode == 0
+
+    async def pull(self, remote: str = "origin", branch: str = "") -> bool:
+        """Pull from remote."""
+        if not self.is_git_repo():
+            return False
+
+        command = f"git pull {remote}"
+        if branch:
+            command += f" {branch}"
+        
+        result = await self._run_git_command(command)
+        return result.returncode == 0
+
+    async def get_diff(self, file_path: str = "") -> str:
+        """Get unstaged diff."""
+        if not self.is_git_repo():
+            return ""
+
+        command = "git diff"
+        if file_path:
+            command += f" -- {file_path}"
+        
+        result = await self._run_git_command(command)
+        return result.stdout or ""
+
+    async def get_log(self, count: int = 20) -> list[dict]:
+        """Get detailed git log."""
+        if not self.is_git_repo():
+            return []
+
+        command = f"git log -{count} --pretty=format:'%H|%h|%an|%ae|%ai|%s'"
+        result = await self._run_git_command(command)
+        
+        if result.stdout:
+            commits = []
+            for line in result.stdout.strip().split("\n"):
+                parts = line.split("|", 5)
+                if len(parts) == 6:
+                    commits.append({
+                        "hash": parts[0],
+                        "short_hash": parts[1],
+                        "author": parts[2],
+                        "email": parts[3],
+                        "date": parts[4],
+                        "message": parts[5],
+                    })
+            return commits
+        return []
+
+    async def blame(self, file_path: str) -> list[dict]:
+        """Get git blame for a file."""
+        if not self.is_git_repo():
+            return []
+
+        command = f"git blame --line-porcelain {file_path}"
+        result = await self._run_git_command(command)
+        
+        if result.stdout:
+            blames = []
+            lines = result.stdout.split("\n")
+            current_blame = {}
+            
+            for line in lines:
+                if line.startswith("author "):
+                    current_blame["author"] = line.replace("author ", "")
+                elif line.startswith("author-mail "):
+                    current_blame["email"] = line.replace("author-mail ", "").replace("<", "").replace(">", "")
+                elif line.startswith("summary "):
+                    current_blame["message"] = line.replace("summary ", "")
+                elif line.startswith("\t"):
+                    current_blame["line_content"] = line[1:]
+                    if current_blame:
+                        blames.append(current_blame.copy())
+                        current_blame = {}
+            
+            return blames
+        return []
 
 
 # Global instance

@@ -480,6 +480,267 @@ class FileSystemPlugin:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def delete_file(self, file_path: str) -> Dict[str, Any]:
+        """Delete a file"""
+        try:
+            path = self._resolve_path(file_path)
+
+            if not path.exists():
+                return {"success": False, "error": f"File not found: {file_path}"}
+
+            if not path.is_file():
+                return {"success": False, "error": f"Path is not a file: {file_path}"}
+
+            # Get size before deletion
+            size = path.stat().st_size
+
+            # Delete the file
+            path.unlink()
+
+            return {
+                "success": True,
+                "message": f"File deleted: {file_path}",
+                "path": str(path.relative_to(self.root_path)),
+                "size_freed": size,
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def rename_file(self, old_path: str, new_path: str) -> Dict[str, Any]:
+        """Rename or move a file"""
+        try:
+            old = self._resolve_path(old_path)
+            new = self._resolve_path(new_path)
+
+            if not old.exists():
+                return {"success": False, "error": f"File not found: {old_path}"}
+
+            # Create parent directories if needed
+            new.parent.mkdir(parents=True, exist_ok=True)
+
+            # Rename the file
+            old.rename(new)
+
+            return {
+                "success": True,
+                "message": f"File renamed: {old_path} → {new_path}",
+                "old_path": old_path,
+                "new_path": new_path,
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def copy_file(self, source_path: str, dest_path: str) -> Dict[str, Any]:
+        """Copy a file"""
+        try:
+            source = self._resolve_path(source_path)
+            dest = self._resolve_path(dest_path)
+
+            if not source.exists():
+                return {"success": False, "error": f"File not found: {source_path}"}
+
+            # Create parent directories if needed
+            dest.parent.mkdir(parents=True, exist_ok=True)
+
+            # Copy the file
+            import shutil
+            shutil.copy2(source, dest)
+
+            return {
+                "success": True,
+                "message": f"File copied: {source_path} → {dest_path}",
+                "source": source_path,
+                "destination": dest_path,
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def search_in_files(self, pattern: str, folder: Optional[str] = None, use_regex: bool = False, case_sensitive: bool = False, limit: int = 50) -> Dict[str, Any]:
+        """Search for text pattern across multiple files"""
+        try:
+            target_path = self._resolve_path(folder)
+            import re
+            
+            # Compile regex if needed
+            flags = 0 if case_sensitive else re.IGNORECASE
+            if use_regex:
+                try:
+                    compiled_pattern = re.compile(pattern, flags)
+                except re.error as e:
+                    return {"success": False, "error": f"Invalid regex pattern: {e}"}
+            
+            results = []
+            files_searched = 0
+            
+            for file_path in target_path.rglob("*"):
+                if self._should_ignore(file_path) or not file_path.is_file():
+                    continue
+                
+                # Only search text files
+                if not self._is_text_file(file_path):
+                    continue
+                
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="ignore")
+                    lines = content.split("\n")
+                    
+                    for line_num, line in enumerate(lines, 1):
+                        match_found = False
+                        if use_regex:
+                            match_found = compiled_pattern.search(line)
+                        else:
+                            match_found = pattern.lower() in line.lower() if not case_sensitive else pattern in line
+                        
+                        if match_found:
+                            relative_path = str(file_path.relative_to(self.root_path))
+                            results.append({
+                                "file": relative_path,
+                                "line": line_num,
+                                "content": line.strip(),
+                            })
+                            
+                            if len(results) >= limit:
+                                break
+                    
+                    files_searched += 1
+                    
+                    if len(results) >= limit:
+                        break
+                        
+                except Exception:
+                    continue
+            
+            return {
+                "success": True,
+                "pattern": pattern,
+                "use_regex": use_regex,
+                "case_sensitive": case_sensitive,
+                "files_searched": files_searched,
+                "matches_found": len(results),
+                "results": results,
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def replace_in_files(self, search_pattern: str, replacement: str, folder: Optional[str] = None, use_regex: bool = False, case_sensitive: bool = False, file_pattern: Optional[str] = None) -> Dict[str, Any]:
+        """Search and replace text across multiple files"""
+        try:
+            target_path = self._resolve_path(folder)
+            import re
+            
+            # Compile regex if needed
+            flags = 0 if case_sensitive else re.IGNORECASE
+            if use_regex:
+                try:
+                    compiled_pattern = re.compile(search_pattern, flags)
+                except re.error as e:
+                    return {"success": False, "error": f"Invalid regex pattern: {e}"}
+            
+            files_modified = 0
+            total_replacements = 0
+            modified_files = []
+            
+            for file_path in target_path.rglob("*"):
+                if self._should_ignore(file_path) or not file_path.is_file():
+                    continue
+                
+                # Filter by file pattern if provided
+                if file_pattern and not fnmatch.fnmatch(file_path.name, file_pattern):
+                    continue
+                
+                # Only modify text files
+                if not self._is_text_file(file_path):
+                    continue
+                
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                    
+                    # Count and perform replacements
+                    if use_regex:
+                        new_content, count = compiled_pattern.subn(replacement, content)
+                    else:
+                        if case_sensitive:
+                            count = content.count(search_pattern)
+                            new_content = content.replace(search_pattern, replacement)
+                        else:
+                            # Case-insensitive replace
+                            pattern_re = re.compile(re.escape(search_pattern), re.IGNORECASE)
+                            new_content, count = pattern_re.subn(replacement, content)
+                    
+                    if count > 0:
+                        file_path.write_text(new_content, encoding="utf-8")
+                        files_modified += 1
+                        total_replacements += count
+                        relative_path = str(file_path.relative_to(self.root_path))
+                        modified_files.append({
+                            "file": relative_path,
+                            "replacements": count,
+                        })
+                        
+                except Exception:
+                    continue
+            
+            return {
+                "success": True,
+                "search_pattern": search_pattern,
+                "replacement": replacement,
+                "files_modified": files_modified,
+                "total_replacements": total_replacements,
+                "modified_files": modified_files,
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_file_tree(self, folder: Optional[str] = None, max_depth: int = 5, include_hidden: bool = False) -> Dict[str, Any]:
+        """Get file tree structure"""
+        try:
+            target_path = self._resolve_path(folder)
+            
+            def build_tree(path: Path, current_depth: int) -> Dict[str, Any]:
+                if current_depth > max_depth:
+                    return {"name": path.name, "type": "directory", "children": []}
+                
+                if self._should_ignore(path) and not include_hidden:
+                    return None
+                
+                if path.is_file():
+                    stat = path.stat()
+                    return {
+                        "name": path.name,
+                        "type": "file",
+                        "size": stat.st_size,
+                        "extension": path.suffix.lower(),
+                    }
+                elif path.is_dir():
+                    children = []
+                    for item in sorted(path.iterdir()):
+                        child = build_tree(item, current_depth + 1)
+                        if child:
+                            children.append(child)
+                    
+                    return {
+                        "name": path.name,
+                        "type": "directory",
+                        "children": children,
+                    }
+                return None
+            
+            tree = build_tree(target_path, 0)
+            
+            return {
+                "success": True,
+                "root": str(target_path.relative_to(self.root_path)),
+                "tree": tree,
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def get_project_structure(self) -> Dict[str, Any]:
         """Get complete project structure summary"""
         cache_key = "project_structure"

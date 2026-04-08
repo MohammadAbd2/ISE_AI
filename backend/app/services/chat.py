@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.models.message import Message
 from app.providers.base import LLMProvider
 from app.providers.ollama import OllamaProvider
+from app.services.system_prompt import SYSTEM_PROMPT
 
 
 class ChatService:
@@ -101,7 +102,8 @@ class ChatService:
             tool_context_str = "\n\n".join(limited_context)
         
         system_parts = [
-            settings.system_prompt,
+            SYSTEM_PROMPT,  # Enhanced system prompt
+            settings.system_prompt,  # Original system prompt
             self._build_effort_instruction(effort),
             (
                 "You can use long-term memory across different chats. "
