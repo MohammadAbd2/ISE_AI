@@ -88,53 +88,102 @@ class ChatPanel(private val project: Project) {
         // Chat container with scroll
         chatContainer.layout = chatLayout
         chatContainer.border = EmptyBorder(10, 10, 10, 10)
-        chatContainer.background = JBColor.background()
+        chatContainer.background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
         
         chatScrollPane = JBScrollPane(chatContainer).apply {
             verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             border = null
+            background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
+            viewport.background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
         }
 
         // Quick actions panel
         val quickActionsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 5, 5)).apply {
             border = EmptyBorder(5, 10, 5, 10)
-            background = JBColor.background()
+            background = JBColor(Color(40, 40, 40), Color(40, 40, 40))
             
-            add(JLabel("Quick Actions:"))
-            add(explainButton)
-            add(refactorButton)
-            add(testsButton)
-            add(fixButton)
-            add(optimizeButton)
-            add(docsButton)
+            add(JLabel("Quick Actions:").apply {
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                font = Font(font.name, Font.BOLD, 11)
+            })
+            
+            arrayOf(explainButton, refactorButton, testsButton, fixButton, optimizeButton, docsButton).forEach { btn ->
+                btn.apply {
+                    background = JBColor(Color(60, 60, 60), Color(60, 60, 60))
+                    foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                    border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80))),
+                        EmptyBorder(4, 8, 4, 8)
+                    )
+                    isContentAreaFilled = true
+                }
+                add(btn)
+            }
         }
 
         // Settings panel
         val settingsPanel = JPanel(GridLayout(2, 3, 8, 5)).apply {
             border = EmptyBorder(10, 10, 5, 10)
-            background = JBColor.background()
+            background = JBColor(Color(40, 40, 40), Color(40, 40, 40))
             
-            add(JLabel("Model:"))
-            add(modelSelector)
-            add(loadFileButton)
+            add(JLabel("Model:").apply { foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224)) })
+            add(modelSelector.apply {
+                background = JBColor(Color(60, 60, 60), Color(60, 60, 60))
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                border = BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80)))
+            })
+            add(loadFileButton.apply {
+                background = JBColor(Color(60, 60, 60), Color(60, 60, 60))
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80))),
+                    EmptyBorder(4, 8, 4, 8)
+                )
+                isContentAreaFilled = true
+            })
             
-            add(JLabel("Mode:").apply { horizontalAlignment = SwingConstants.RIGHT })
-            add(modeSelector)
-            add(loadProjectButton)
+            add(JLabel("Mode:").apply { 
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                horizontalAlignment = SwingConstants.RIGHT 
+            })
+            add(modeSelector.apply {
+                background = JBColor(Color(60, 60, 60), Color(60, 60, 60))
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                border = BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80)))
+            })
+            add(loadProjectButton.apply {
+                background = JBColor(Color(60, 60, 60), Color(60, 60, 60))
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80))),
+                    EmptyBorder(4, 8, 4, 8)
+                )
+                isContentAreaFilled = true
+            })
             
-            add(JLabel("Effort:").apply { horizontalAlignment = SwingConstants.RIGHT })
-            add(levelSelector)
-            add(JLabel(""))
+            add(JLabel("Effort:").apply { 
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                horizontalAlignment = SwingConstants.RIGHT 
+            })
+            add(levelSelector.apply {
+                background = JBColor(Color(60, 60, 60), Color(60, 60, 60))
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                border = BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80)))
+            })
+            add(JLabel("").apply { background = JBColor(Color(40, 40, 40), Color(40, 40, 40)) })
         }
 
         // Status bar
         val statusPanel = JPanel(BorderLayout()).apply {
             border = EmptyBorder(5, 10, 5, 10)
-            background = JBColor.background()
-            add(statusLabel, BorderLayout.WEST)
+            background = JBColor(Color(40, 40, 40), Color(40, 40, 40))
+            add(statusLabel.apply {
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+            }, BorderLayout.WEST)
             
             val fileCountLabel = JLabel("").apply {
+                foreground = JBColor(Color(176, 176, 176), Color(176, 176, 176))
                 if (projectFiles.isNotEmpty()) {
                     text = "📁 ${projectFiles.size} files indexed"
                 }
@@ -145,17 +194,46 @@ class ChatPanel(private val project: Project) {
         // Input panel
         val inputPanel = JPanel(BorderLayout(10, 0)).apply {
             border = EmptyBorder(10, 10, 10, 10)
-            background = JBColor.background()
+            background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
             
-            val inputScrollPane = JBScrollPane(messageInput).apply {
+            val inputScrollPane = JBScrollPane(messageInput.apply {
+                background = JBColor(Color(50, 50, 50), Color(50, 50, 50))
+                foreground = JBColor(Color(224, 224, 224), Color(224, 224, 224))
+                caretColor = JBColor(Color(255, 255, 255), Color(255, 255, 255))
+                border = BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(JBColor(Color(80, 80, 80), Color(80, 80, 80))),
+                    EmptyBorder(5, 5, 5, 5)
+                )
+            }).apply {
                 preferredSize = Dimension(0, 80)
+                background = JBColor(Color(50, 50, 50), Color(50, 50, 50))
+                viewport.background = JBColor(Color(50, 50, 50), Color(50, 50, 50))
             }
             
             add(inputScrollPane, BorderLayout.CENTER)
             
             val buttonPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0)).apply {
-                add(sendButton)
-                add(cancelButton)
+                background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
+                add(sendButton.apply {
+                    background = JBColor(Color(13, 110, 253), Color(13, 110, 253))
+                    foreground = Color.WHITE
+                    border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(JBColor(Color(10, 85, 200), Color(10, 85, 200))),
+                        EmptyBorder(4, 16, 4, 16)
+                    )
+                    isContentAreaFilled = true
+                    font = font.deriveFont(Font.BOLD)
+                })
+                add(cancelButton.apply {
+                    background = JBColor(Color(220, 53, 69), Color(220, 53, 69))
+                    foreground = Color.WHITE
+                    border = BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(JBColor(Color(180, 30, 40), Color(180, 30, 40))),
+                        EmptyBorder(4, 16, 4, 16)
+                    )
+                    isContentAreaFilled = true
+                    font = font.deriveFont(Font.BOLD)
+                })
             }
             add(buttonPanel, BorderLayout.EAST)
         }
@@ -163,21 +241,27 @@ class ChatPanel(private val project: Project) {
         // Top panel for title
         val topPanel = JPanel(BorderLayout()).apply {
             border = EmptyBorder(10, 10, 5, 10)
-            background = JBColor.background()
+            background = JBColor(Color(40, 40, 40), Color(40, 40, 40))
             add(JLabel("ISE AI Copilot - Local Models via Ollama").apply {
                 font = Font(font.name, Font.BOLD, 13)
+                foreground = JBColor(Color(255, 255, 255), Color(255, 255, 255))
             }, BorderLayout.WEST)
         }
 
-        mainPanel.add(topPanel, BorderLayout.NORTH)
-        mainPanel.add(chatScrollPane, BorderLayout.CENTER)
-        mainPanel.add(settingsPanel, BorderLayout.NORTH)
-        mainPanel.add(quickActionsPanel, BorderLayout.PAGE_START)
-        mainPanel.add(statusPanel, BorderLayout.SOUTH)
+        mainPanel.apply {
+            background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
+            add(topPanel, BorderLayout.NORTH)
+            add(chatScrollPane, BorderLayout.CENTER)
+            add(settingsPanel, BorderLayout.NORTH)
+            add(quickActionsPanel, BorderLayout.PAGE_START)
+            add(statusPanel, BorderLayout.SOUTH)
+        }
         
         // Create a wrapper for input
-        val bottomPanel = JPanel(BorderLayout())
-        bottomPanel.add(inputPanel, BorderLayout.CENTER)
+        val bottomPanel = JPanel(BorderLayout()).apply {
+            background = JBColor(Color(30, 30, 30), Color(30, 30, 30))
+            add(inputPanel, BorderLayout.CENTER)
+        }
         mainPanel.add(bottomPanel, BorderLayout.SOUTH)
     }
 
@@ -474,11 +558,11 @@ class ChatPanel(private val project: Project) {
     private fun appendMessage(role: String, content: String) {
         val messagePanel = JPanel(BorderLayout()).apply {
             val bgColor = when (role) {
-                "user" -> Color(13, 110, 253)
-                "assistant" -> Color(108, 117, 125)
-                "info" -> Color(23, 162, 184)
-                "error" -> Color(220, 53, 69)
-                else -> JBColor.background()
+                "user" -> JBColor(Color(50, 100, 200), Color(50, 100, 200))
+                "assistant" -> JBColor(Color(60, 60, 70), Color(60, 60, 70))
+                "info" -> JBColor(Color(50, 140, 160), Color(50, 140, 160))
+                "error" -> JBColor(Color(180, 50, 60), Color(180, 50, 60))
+                else -> JBColor(Color(40, 40, 40), Color(40, 40, 40))
             }
             background = bgColor
             border = EmptyBorder(10, 12, 10, 12)
@@ -515,6 +599,7 @@ class ChatPanel(private val project: Project) {
                 border = null
                 preferredSize = Dimension(400, 100)
                 viewport.background = messagePanel.background
+                background = messagePanel.background
             }
             add(scrollPane, BorderLayout.CENTER)
         }
@@ -532,7 +617,7 @@ class ChatPanel(private val project: Project) {
 
     private fun streamAssistantChunk(chunk: String) {
         if (currentMessageLabel == null) {
-            val bgColor = Color(108, 117, 125)
+            val bgColor = JBColor(Color(60, 60, 70), Color(60, 60, 70))
             val panel = JPanel(BorderLayout()).apply {
                 background = bgColor
                 border = EmptyBorder(10, 12, 10, 12)
@@ -558,6 +643,7 @@ class ChatPanel(private val project: Project) {
             val scrollPane = JScrollPane(currentMessageLabel!!).apply {
                 border = null
                 viewport.background = bgColor
+                background = bgColor
             }
             
             panel.add(headerPanel, BorderLayout.NORTH)

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import subprocess
+from pathlib import Path
 
 from app.services.chat import ChatService
 from app.services.profile import ProfileService
@@ -30,6 +32,8 @@ class AgentToolbox:
             results.append(self._time_tool())
         if self._should_show_profile(lower):
             results.append(await self._profile_tool())
+        if self._should_list_files(lower):
+            results.append(await self._list_files_tool(user_message))
 
         return self._dedupe_results(results)
 
@@ -41,6 +45,8 @@ class AgentToolbox:
             "show",
             "list",
             "display",
+            "count",
+            "how many",
             "what do you remember",
             "what models",
             "available models",
@@ -144,6 +150,97 @@ class AgentToolbox:
             "assistant profile",
         ]
         return any(phrase in lower for phrase in phrases)
+
+    def _should_list_files(self, lower: str) -> bool:
+        phrases = [
+            "how many files",
+            "files in the",
+            "list files in",
+            "count files",
+            "count the files",
+            "how many files in",
+            "list dir",
+            "list directory",
+            "show files in",
+        ]
+        return any(phrase in lower for phrase in phrases)
+
+    async def _list_files_tool(self, user_message: str) -> ToolResult:
+        try:
+            path = self._extract_path_from_query(user_message)
+            target_path = Path(path) if path else Path.cwd()
+            
+            if not target_path.exists():
+                return ToolResult(
+                    name="File System",
+                    content=f"Path not found: {target_path}"
+                )
+            
+            if target_path.is_file():
+                return ToolResult(
+                    name="File System",
+                    content=f"This is a file, not a directory: {target_path.name}"
+                )
+            
+            files = []
+            try:
+                for item in target_path.iterdir():
+                    if not item.name.startswith("."):
+                        files.append(item)
+            except PermissionError:
+                return ToolResult(
+                    name="File System",
+                    content=f"Permission denied accessing: {target_path}"
+                )
+            
+            file_count = len(files)
+            file_list = "\n".join(f"- {f.name}" for f in sorted(files)[:20])
+            
+            result_text = f"Directory: {target_path}\nTotal files/folders: {file_count}"
+            if files:
+                result_text += f"\n\nContents (showing first 20):\n{file_list}"
+                if file_count > 20:
+                    result_text += f"\n... and {file_count - 20} more items"
+            
+            return ToolResult(
+                name="File System",
+                content=result_text
+            )
+        except Exception as e:
+            return ToolResult(
+                name="File System",
+                content=f"Error listing files: {str(e)}"
+            )
+
+    def _extract_path_from_query(self, user_message: str) -> str:
+        lower = user_message.lower()
+        
+        # Extract path patterns like "files in the tests folder", "files in ./src"
+        import re
+        
+        patterns = [
+            r"files in\s+(?:the\s+)?(?:\'|\")?([^\'\"?\n]+?)(?:\'|\")?(?:\s|folder|directory|\?|$)",
+            r"in\s+(?:the\s+)?(?:\'|\")?([^\'\"?\n]+?)(?:\'|\")?(?:\s|folder|directory|\?|$)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, lower)
+            if match:
+                path_str = match.group(1).strip()
+                # Handle common patterns
+                if "tests" in path_str:
+                    return "tests"
+                if "src" in path_str or "source" in path_str:
+                    return "src"
+                if "backend" in path_str:
+                    return "backend"
+                if "frontend" in path_str:
+                    return "frontend"
+                if "extensions" in path_str:
+                    return "extensions"
+                return path_str.strip()
+        
+        return ""
 
     def _dedupe_results(self, results: list[ToolResult]) -> list[ToolResult]:
         seen: set[str] = set()
