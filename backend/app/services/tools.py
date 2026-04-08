@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.services.chat import ChatService
 from app.services.profile import ProfileService
+from app.plugins.filesystem.plugin import FileSystemPlugin
 
 
 @dataclass(slots=True)
@@ -19,6 +20,7 @@ class AgentToolbox:
     def __init__(self, chat_service: ChatService, profile_service: ProfileService) -> None:
         self.chat_service = chat_service
         self.profile_service = profile_service
+        self.filesystem_plugin = FileSystemPlugin()
 
     async def run_requested_tools(self, user_message: str) -> list[ToolResult]:
         lower = user_message.lower()
@@ -166,51 +168,51 @@ class AgentToolbox:
         return any(phrase in lower for phrase in phrases)
 
     async def _list_files_tool(self, user_message: str) -> ToolResult:
+        """Use FileSystemPlugin for real, accurate file system access"""
         try:
             path = self._extract_path_from_query(user_message)
-            target_path = Path(path) if path else Path.cwd()
             
-            if not target_path.exists():
-                return ToolResult(
-                    name="File System",
-                    content=f"Path not found: {target_path}"
-                )
-            
-            if target_path.is_file():
-                return ToolResult(
-                    name="File System",
-                    content=f"This is a file, not a directory: {target_path.name}"
-                )
-            
-            files = []
-            try:
-                for item in target_path.iterdir():
-                    if not item.name.startswith("."):
-                        files.append(item)
-            except PermissionError:
-                return ToolResult(
-                    name="File System",
-                    content=f"Permission denied accessing: {target_path}"
-                )
-            
-            file_count = len(files)
-            file_list = "\n".join(f"- {f.name}" for f in sorted(files)[:20])
-            
-            result_text = f"Directory: {target_path}\nTotal files/folders: {file_count}"
-            if files:
-                result_text += f"\n\nContents (showing first 20):\n{file_list}"
-                if file_count > 20:
-                    result_text += f"\n... and {file_count - 20} more items"
-            
-            return ToolResult(
-                name="File System",
-                content=result_text
-            )
+            # Use FileSystem Plugin for accurate results
+            if "how many" in user_message.lower():
+                result = self.filesystem_plugin.count_files_in_folder(folder=path or None)
+                if result["success"]:
+                    total = result["total_files"]
+                    categories = result.get("by_category", {})
+                    content = f"**Total files in {result['folder']}: {total}**\n\n"
+                    if categories:
+                        content += "Files by category:\n"
+                        for cat, count in sorted(categories.items(), key=lambda x: x[1], reverse=True):
+                            content += f"  • {cat}: {count}\n"
+                    extensions = result.get("by_extension", {})
+                    if extensions:
+                        content += "\nTop file types:\n"
+                        for ext, count in sorted(extensions.items(), key=lambda x: x[1], reverse=True)[:5]:
+                            ext_display = ext if ext else "(no extension)"
+                            content += f"  • {ext_display}: {count}\n"
+                    return ToolResult(name="File System", content=content)
+                else:
+                    return ToolResult(name="File System", content=f"Error: {result.get('error', 'Unknown error')}")
+            else:
+                # List files
+                result = self.filesystem_plugin.list_files(folder=path or None, limit=20)
+                if result["success"]:
+                    files = result.get("files", [])
+                    content = f"**Files in {result['folder']}** ({result['count']} total)\n\n"
+                    if files:
+                        for f in files:
+                            size_mb = f.get("size", 0) / (1024 * 1024)
+                            if size_mb < 0.01:
+                                size_str = f"{f.get('size', 0)} B"
+                            else:
+                                size_str = f"{size_mb:.2f} MB"
+                            content += f"  • {f['name']} ({size_str}) - {f.get('category', 'unknown')}\n"
+                        if result['count'] > 20:
+                            content += f"\n... and {result['count'] - 20} more files"
+                    return ToolResult(name="File System", content=content)
+                else:
+                    return ToolResult(name="File System", content=f"Error: {result.get('error', 'Unknown error')}")
         except Exception as e:
-            return ToolResult(
-                name="File System",
-                content=f"Error listing files: {str(e)}"
-            )
+            return ToolResult(name="File System", content=f"Error: {str(e)}")
 
     def _extract_path_from_query(self, user_message: str) -> str:
         lower = user_message.lower()

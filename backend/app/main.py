@@ -41,6 +41,14 @@ try:
 except Exception as e:
     print(f"⚠️  Could not load enhanced routes: {e}")
 
+# Include FileSystem Plugin routes
+try:
+    from app.api.filesystem_routes import router as filesystem_router
+    app.include_router(filesystem_router)
+    print("✅ FileSystem Plugin endpoints loaded (Advanced file system introspection)")
+except Exception as e:
+    print(f"⚠️  Could not load FileSystem Plugin routes: {e}")
+
 # Dynamically include capability endpoints if they exist
 api_dir = Path(__file__).parent / "api"
 
