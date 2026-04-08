@@ -19,6 +19,86 @@ function AttachmentList({ attachments }) {
   );
 }
 
+function ResearchProgressLog({ payload }) {
+  if (!payload) return null;
+  
+  const { steps, latest_message, is_complete, is_error } = payload;
+  
+  if (!steps || steps.length === 0) return null;
+
+  return (
+    <div className={`research-progress-log ${is_complete ? 'complete' : ''} ${is_error ? 'error' : ''}`}>
+      <div className="research-progress-header">
+        <span className="research-progress-icon">
+          {is_complete ? '✓' : is_error ? '❌' : '🔍'}
+        </span>
+        <span className="research-progress-status">{latest_message}</span>
+      </div>
+      <div className="research-progress-steps">
+        {steps.map((step, index) => (
+          <div key={index} className={`research-progress-step ${step.step}`}>
+            <span className="step-icon">
+              {step.is_complete ? '✓' : step.is_error ? '❌' : '•'}
+            </span>
+            <span className="step-message">{step.message}</span>
+            {step.details && !step.is_complete && (
+              <span className="step-details">{step.details}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResourceList({ payload }) {
+  if (!payload || !payload.resources || payload.resources.length === 0) {
+    return null;
+  }
+
+  const { title, resources } = payload;
+
+  return (
+    <div className="resource-list">
+      <div className="resource-list-header">
+        <span className="resource-list-icon">📚</span>
+        <h4 className="resource-list-title">{title || 'Sources'}</h4>
+        <span className="resource-count">{resources.length} sources</span>
+      </div>
+      <div className="resource-grid">
+        {resources.map((resource, index) => (
+          <a
+            key={index}
+            href={resource.url}
+            target="_blank"
+            rel="noreferrer"
+            className="resource-card"
+            title={`${resource.title}\n${resource.url}`}
+          >
+            <div className="resource-card-content">
+              <div className="resource-header">
+                <img 
+                  src={resource.favicon_url} 
+                  alt="" 
+                  className="resource-favicon"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+                <span className="resource-domain">{resource.domain}</span>
+              </div>
+              <div className="resource-title">{resource.title}</div>
+              {resource.snippet && (
+                <div className="resource-snippet">{resource.snippet}</div>
+              )}
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AgentProgressLog({ content }) {
   // Detect agent progress logs in content
   // Format: 🔧 **Task** followed by action items with ✅ 🔄 ⏳ ❌
@@ -401,6 +481,10 @@ function MessageBubbleWithAttachments({
           ? renderBlocks.map((block, index) =>
               block?.type === "visualization" ? (
                 <DynamicVisualization key={`${messageKey}-block-${index}`} spec={block.payload} />
+              ) : block?.type === "research_progress" ? (
+                <ResearchProgressLog key={`${messageKey}-block-${index}`} payload={block.payload} />
+              ) : block?.type === "resource_list" ? (
+                <ResourceList key={`${messageKey}-block-${index}`} payload={block.payload} />
               ) : block?.type === "report" ? (
                 <ReportBlock key={`${messageKey}-block-${index}`} payload={block.payload} />
               ) : block?.type === "research_result" ? (

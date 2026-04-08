@@ -35,6 +35,7 @@ from app.services.autonomous_developer import (
 )
 from app.services.self_learning import get_learning_system
 from app.services.intent_classifier import get_intent_classifier
+from app.services.research_memory import get_research_memory_service
 
 
 @dataclass(slots=True)
@@ -74,6 +75,7 @@ class ChatAgent:
         # Self-learning system
         self.learning_system = get_learning_system()
         self.intent_classifier = get_intent_classifier()
+        self.research_memory = get_research_memory_service()
 
     async def respond(self, payload: ChatRequest, session_id: str | None = None) -> ChatResponse:
         profile = await self.profile_service.get_profile()
@@ -654,3 +656,58 @@ class ChatAgent:
             # Don't let context failures break the chat
             print(f"Context generation error: {e}")
             return []
+
+    async def _save_research_to_memory(self, query: str, search_logs: list[WebSearchLog] | None):
+        """Automatically save research facts to long-term memory after a search."""
+        if not search_logs:
+            return
+        
+        for log in search_logs:
+            if log.status == "failed" or not log.sources:
+                continue
+            
+            # Extract key facts from search results
+            facts_to_save = []
+            
+            # Save summary if available
+            if log.summary and len(log.summary) > 30:
+                facts_to_save.append(f"Research: {log.summary}")
+            
+            # Save key information from top sources
+            for source in log.sources[:2]:  # Top 2 sources
+                if source.snippet and len(source.snippet) > 40:
+                    # Extract first sentence or meaningful chunk
+                    first_part = source.snippet.split('.')[0].strip()
+                    if len(first_part) > 30:
+                        facts_to_save.append(f"From {source.domain or source.url}: {first_part}")
+            
+            # Save to profile memory (only if we have meaningful facts)
+            if facts_to_save:
+                for fact in facts_to_save[:3]:  # Limit to 3 facts per search
+                    await self.profile_service.remember(fact)
+
+    async def _get_personalized_context(self, task: str) -> list[str]:
+        """Get personalized context including research memory."""
+        context_parts = []
+        
+        # Get learning system context
+        try:
+            learning_system = get_learning_system()
+            learning_context = await learning_system.get_personalized_context(task)
+            if learning_context:
+                if learning_context.get("user_preferences"):
+                    context_parts.append("User preferences detected")
+                if learning_context.get("recommendations"):
+                    context_parts.extend(learning_context["recommendations"])
+        except Exception as e:
+            print(f"Learning context error: {e}")
+        
+        # Get research memory context
+        try:
+            research_context = self.research_memory.get_research_context(task)
+            if research_context:
+                context_parts.append(f"Research memory: {len(research_context)} facts available")
+        except Exception as e:
+            print(f"Research context error: {e}")
+        
+        return context_parts

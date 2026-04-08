@@ -12,6 +12,8 @@ import httpx
 from app.schemas.chat import SearchSource, WebSearchLog
 from app.services.artifacts import ArtifactService, get_artifact_service
 from app.services.url_content import UrlContentService, get_url_content_service
+from app.services.research_memory import ResearchMemoryService, get_research_memory_service
+from app.services.research_progress import ResearchProgressLogger, ResearchStep
 
 
 class _DuckDuckGoResultParser(HTMLParser):
@@ -144,9 +146,11 @@ class SearchService:
         self,
         artifact_service: ArtifactService,
         url_content_service: UrlContentService | None = None,
+        research_memory: ResearchMemoryService | None = None,
     ) -> None:
         self.artifact_service = artifact_service
         self._url_content = url_content_service
+        self._research_memory = research_memory or get_research_memory_service()
 
     def should_search(self, user_message: str) -> bool:
         lower = user_message.lower()
@@ -196,6 +200,27 @@ class SearchService:
         return bool(re.search(r"\b(price of|how much is|worth right now|trading at)\b", lower))
 
     async def search(self, session_id: str, query: str, limit: int = 5) -> WebSearchLog:
+        progress = ResearchProgressLogger()
+        
+        # Check if we have cached research for this query
+        progress.log_step(ResearchStep.CHECKING_CACHE, "🔍 Checking research memory")
+        cached = self._research_memory.find_cached_research(query)
+        if cached:
+            progress.log_cache_hit(query)
+            # Return cached result without performing new search
+            sources = [SearchSource(**source) for source in cached.sources]
+            log = WebSearchLog(
+                query=query,
+                provider="cached",
+                searched_at=self._timestamp(),
+                summary=cached.summary,
+                sources=sources,
+            )
+            # Attach progress to the log for frontend display
+            log._progress = progress
+            return log
+
+        progress.log_search_start(query)
         prepared_query = self._prepare_query(query)
         query_variants = self._build_query_variants(query, prepared_query)
         async with httpx.AsyncClient(timeout=40.0, follow_redirects=True) as client:
@@ -227,6 +252,9 @@ class SearchService:
                 original_query=query,
             )
 
+        progress.log_search_complete(len(sources))
+        progress.log_analyzing_sources(len(sources))
+        
         provider = self._provider_label(ddg_results, bing_results)
         summary = self._build_summary(prepared_query, sources)
         log = WebSearchLog(
@@ -239,6 +267,9 @@ class SearchService:
 
         content = self.build_prompt_context(log)
         research_metadata = self._build_research_metadata(log, query_variants)
+        
+        progress.log_extracting_facts(len(summary) if summary else 0)
+        
         await self.artifact_service.create_artifact(
             session_id=session_id,
             kind="search",
@@ -253,6 +284,16 @@ class SearchService:
             content=self._build_research_artifact_content(log, query_variants),
             metadata=research_metadata,
         )
+
+        # Cache the research results
+        progress.log_saving_memory()
+        await self._research_memory.cache_research(log, content)
+        
+        progress.log_complete(len(sources), len(self._research_memory.get_research_context(query)))
+        
+        # Attach progress to the log for frontend display
+        log._progress = progress
+
         return log
 
     async def recent_context(self, session_id: str, user_message: str) -> list[str]:
@@ -362,6 +403,12 @@ class SearchService:
         conflict = self._detect_numeric_conflict(log.sources)
         freshness = self._estimate_freshness(log.sources)
         confidence = self._estimate_confidence(log.sources, conflict)
+        
+        # Get progress log if available
+        progress_block = None
+        if hasattr(log, '_progress'):
+            progress_block = log._progress.to_render_block()
+        
         if log.status == "failed":
             return [
                 {
@@ -392,52 +439,67 @@ class SearchService:
         if conflict:
             highlights.append(conflict)
 
-        return [
-                {
-                    "type": "research_result",
-                    "payload": {
-                        "query": log.query,
-                        "provider": log.provider,
-                        "status": log.status,
-                        "query_plan": query_plan,
-                        "freshness": freshness,
-                        "confidence": confidence,
-                        "conflict": conflict,
-                        "sources": [
-                            {
-                                "title": source.title,
-                                "url": source.url,
-                                "domain": source.domain or self._extract_domain(source.url),
-                                "snippet": source.snippet,
-                                "freshness": self._extract_source_date_text(source),
-                                "authority": self._authority_label(source.domain or self._extract_domain(source.url)),
-                            }
-                            for source in log.sources[:6]
-                        ],
-                    },
-                },
-            {
-                "type": "report",
-                "payload": {
-                    "title": "Research summary",
-                    "summary": log.summary or f"Collected {len(log.sources)} sources for `{log.query}`.",
-                    "highlights": highlights or [log.query],
-                },
+        render_blocks = []
+        
+        # Add progress block first if available
+        if progress_block:
+            render_blocks.append(progress_block)
+        
+        # Add research summary block
+        render_blocks.append({
+            "type": "research_result",
+            "payload": {
+                "query": log.query,
+                "provider": log.provider,
+                "status": log.status,
+                "query_plan": query_plan,
+                "freshness": freshness,
+                "confidence": confidence,
+                "conflict": conflict,
+                "sources": [
+                    {
+                        "title": source.title,
+                        "url": source.url,
+                        "domain": source.domain or self._extract_domain(source.url),
+                        "snippet": source.snippet,
+                        "freshness": self._extract_source_date_text(source),
+                        "authority": self._authority_label(source.domain or self._extract_domain(source.url)),
+                        "favicon_url": f"https://www.google.com/s2/favicons?domain={source.domain or self._extract_domain(source.url)}&sz=32",
+                    }
+                    for source in log.sources[:6]
+                ],
             },
-            {
-                "type": "file_result",
-                "payload": {
-                    "title": "Research sources",
-                    "files": [
-                        {
-                            "path": source.url,
-                            "summary": self._source_summary(source),
-                        }
-                        for source in log.sources[:8]
-                    ],
-                },
+        })
+        
+        # Add summary report
+        render_blocks.append({
+            "type": "report",
+            "payload": {
+                "title": "Research summary",
+                "summary": log.summary or f"Collected {len(log.sources)} sources for `{log.query}`.",
+                "highlights": highlights or [log.query],
             },
-        ]
+        })
+        
+        # Add clean resource list for frontend display
+        render_blocks.append({
+            "type": "resource_list",
+            "payload": {
+                "title": "Sources",
+                "resources": [
+                    {
+                        "title": source.title,
+                        "url": source.url,
+                        "domain": source.domain or self._extract_domain(source.url),
+                        "favicon_url": f"https://www.google.com/s2/favicons?domain={source.domain or self._extract_domain(source.url)}&sz=32",
+                        "snippet": source.snippet[:150] if source.snippet else "",
+                    }
+                    for source in log.sources[:8]
+                ],
+            },
+        })
+        
+        return render_blocks
 
     def failed_log(self, query: str, error: str) -> WebSearchLog:
         return WebSearchLog(
@@ -1192,4 +1254,5 @@ def get_search_service() -> SearchService:
     return SearchService(
         artifact_service=get_artifact_service(),
         url_content_service=get_url_content_service(),
+        research_memory=get_research_memory_service(),
     )
