@@ -30,10 +30,19 @@ class ToolExecutor:
     # Security settings
     MAX_COMMAND_TIMEOUT = 30  # seconds
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    
+    # Get project root (parent of backend directory)
+    _project_root = Path(settings.backend_root).parent.parent
     SAFE_DIRECTORIES = {
-        Path(settings.backend_root),
-        Path(settings.backend_root).parent / "frontend",
-        Path(settings.backend_root).parent.parent,  # Project root (/home/baron/Desktop/Easv/Ai/ISE_AI)
+        Path(settings.backend_root),  # backend/app
+        Path(settings.backend_root).parent,  # backend
+        _project_root,  # Project root (/home/baron/Desktop/Easv/Ai/ISE_AI)
+        _project_root / "frontend",
+        _project_root / "backend",
+        _project_root / "extensions",
+        _project_root / "tests",
+        _project_root / "docs",
+        _project_root / "assets",
     }
 
     def __init__(self):

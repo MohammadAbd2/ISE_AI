@@ -774,6 +774,12 @@ export default function App() {
             onModeChange={setMode}
             tokenUsage={tokenUsage}
             onVoiceCommand={handleVoiceCommand}
+            activeModel={activeModel}
+            onModelChange={setActiveModel}
+            responseEffort={responseEffort}
+            onResponseEffortChange={setResponseEffort}
+            indexedFiles={artifacts}
+            onViewIndexedFiles={() => setActiveView("dashboard")}
           />
         </div>
       }

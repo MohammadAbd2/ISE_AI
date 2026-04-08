@@ -88,6 +88,20 @@ class ChatAgent:
                 attachments=payload.attachments,
             )
         else:
+            # Check if this is a filesystem query
+            intent = self.intent_classifier.classify(payload.message, payload.mode)
+            if intent.use_filesystem:
+                # Handle filesystem query directly with toolbox
+                results = await self.toolbox.run_requested_tools(payload.message)
+                if results:
+                    reply = self.toolbox.format_direct_reply(results)
+                    response = ChatResponse(
+                        reply=reply,
+                        model=payload.model or "agent",
+                    )
+                    await self._learn_from_interaction(payload, response)
+                    return response
+
             # Use regular chat for questions - still run orchestrator to get tools/search
             orchestration = await self.orchestrator.run(
                 user_message=payload.message,
@@ -154,10 +168,10 @@ class ChatAgent:
         session_id: str | None = None,
     ) -> tuple[AsyncIterator[str], str, list[WebSearchLog], list[ImageIntelLog], list[dict]]:
         profile = await self.profile_service.get_profile()
-        
+
         # Determine if we should use agent mode
         use_agent_mode = self._should_use_agent_mode(payload.message, payload.mode)
-        
+
         if use_agent_mode:
             # Use autonomous agent for coding tasks
             decision = await self._decide(
@@ -166,6 +180,21 @@ class ChatAgent:
                 attachments=payload.attachments,
             )
         else:
+            # Check if this is a filesystem query
+            intent = self.intent_classifier.classify(payload.message, payload.mode)
+            if intent.use_filesystem:
+                # Handle filesystem query directly with toolbox
+                results = await self.toolbox.run_requested_tools(payload.message)
+                if results:
+                    reply = self.toolbox.format_direct_reply(results)
+                    return (
+                        self._stream_text(reply),
+                        payload.model or "agent",
+                        [],
+                        [],
+                        [],
+                    )
+
             # Use regular chat for questions - still run orchestrator to get tools/search
             orchestration = await self.orchestrator.run(
                 user_message=payload.message,

@@ -89,3 +89,11 @@ if agent_routes.exists():
         print("✅ Multi-agent orchestration endpoints loaded")
     except Exception as e:
         print(f"⚠️  Could not load agent routes: {e}")
+
+# Include project indexing routes
+try:
+    from app.api.project_indexing_routes import router as project_indexing_router
+    app.include_router(project_indexing_router)
+    print("✅ Project indexing endpoints loaded (Fast filesystem queries)")
+except Exception as e:
+    print(f"⚠️  Could not load project indexing routes: {e}")

@@ -327,8 +327,10 @@ class CodingAgent:
             "create a", "create an", "create new", "add a", "add an", "add new",
             "implement a", "implement an", "write a", "write an", "generate a",
 
-            # File operations
+            # File operations - CRITICAL for file creation
             "edit file", "update file", "create file", "new file", "delete file",
+            "write a new file", "write a file", "create a new file", "make a file",
+            "save a file", "save to file",
 
             # Code-specific
             "add endpoint", "add route", "add function", "add class",
@@ -346,7 +348,7 @@ class CodingAgent:
 
             # Encryption/security
             "encrypt", "decrypt", "security", "authentication", "authorization",
-            
+
             # Multi-step tasks
             "then", "next", "after that", "first", "second", "third",
         ]
@@ -364,6 +366,8 @@ class CodingAgent:
             r"(?:function|method|class)\s+\w+",  # Code elements
             r"(?:file|module)\s+\w+\.py",  # Python files
             r"(?:create|make|build)\s+(?:a|an)?\s*\w+\s+(?:file|tool|utility|service|component)",
+            r"write\s+(?:a|new|the)?\s*(?:file\s+)?(?:called\s+)?[\w.-]+",  # "write a file called..."
+            r"create\s+(?:a|new|the)?\s*(?:file\s+)?(?:called\s+)?[\w.-]+",  # "create a file called..."
         ]
 
         for pattern in tech_patterns:

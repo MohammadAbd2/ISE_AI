@@ -10,6 +10,7 @@ class TaskIntent:
     use_visualization: bool = False
     use_research: bool = False
     use_project_context: bool = False
+    use_filesystem: bool = False
 
 
 class IntentClassifier:
@@ -33,10 +34,26 @@ class IntentClassifier:
         "project", "repo", "repository", "zip", "archive", "codebase", "folder",
         "analyze files", "analyse files", "read the project", "inspect files",
     )
+    FILESYSTEM_TERMS = (
+        "how many files", "how many folders", "how many directories",
+        "count files", "count folders", "count directories",
+        "list files", "list folders", "list directories",
+        "files in", "folders in", "directories in",
+        "what files", "what folders", "what directories",
+        "show files", "show folders", "show directories",
+        "file structure", "folder structure", "directory structure",
+        "tests folder", "tests directory", "tests folder",
+        "src folder", "src directory", "src folder",
+        "backend folder", "backend directory", "backend folder",
+        "frontend folder", "frontend directory", "frontend folder",
+        "inside the folder", "inside the directory",
+        "content of", "read file", "display the content",
+    )
     CODING_TERMS = (
         "create file", "write file", "save to", "edit file", "update file", "delete file",
         "modify", "fix", "debug", "refactor", "implement", "add endpoint", "add route",
         "install", "run tests", "write tests", "create component", "update component",
+        "create a file", "write a file", "make a file", "new file",
     )
     CHAT_TERMS = (
         "what is", "explain", "tell me", "describe", "why", "how does", "review this",
@@ -58,6 +75,15 @@ class IntentClassifier:
                 kind="visualization",
                 confidence=0.88,
                 use_visualization=True,
+            )
+
+        # Check filesystem queries FIRST (highest priority for file counting/listing)
+        if self._is_filesystem_query(lower):
+            return TaskIntent(
+                kind="filesystem",
+                confidence=0.92,
+                use_project_context=True,
+                use_filesystem=True,
             )
 
         if any(term in lower for term in self.RESEARCH_TERMS):
@@ -85,6 +111,9 @@ class IntentClassifier:
         return any(term in lower for term in self.VISUAL_TERMS) and not any(
             term in lower for term in self.VISUAL_CODE_TERMS
         )
+
+    def _is_filesystem_query(self, lower: str) -> bool:
+        return any(term in lower for term in self.FILESYSTEM_TERMS)
 
     def _is_coding(self, lower: str) -> bool:
         return any(term in lower for term in self.CODING_TERMS)

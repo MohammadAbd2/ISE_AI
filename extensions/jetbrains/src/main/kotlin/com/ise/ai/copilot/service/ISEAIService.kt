@@ -37,7 +37,7 @@ class ISEAIService {
         .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
         .build()
-    
+
     private val mapper = jacksonObjectMapper()
     private val chatHistory = mutableListOf<ChatMessage>()
     private var currentJob: Job? = null
@@ -49,11 +49,54 @@ class ISEAIService {
     var mode: String = "auto"
     var effort: String = "medium"
     var enableMultiAgent: Boolean = true
+    var projectIndexed: Boolean = false
 
     companion object {
         @JvmStatic
         fun getInstance(): ISEAIService {
             return ApplicationManager.getApplication().getService(ISEAIService::class.java)
+        }
+    }
+
+    /**
+     * Index the project for fast filesystem queries.
+     * Should be called when a project is opened.
+     */
+    suspend fun indexProject(projectPath: String, projectName: String) {
+        if (projectIndexed) {
+            return // Already indexed
+        }
+
+        try {
+            val requestBody = mapper.writeValueAsString(
+                mapOf(
+                    "root_path" to projectPath,
+                    "project_name" to projectName
+                )
+            )
+
+            val request = Request.Builder()
+                .url("$serverUrl/api/project/index")
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .apply {
+                    if (apiKey.isNotEmpty()) {
+                        header("Authorization", "Bearer $apiKey")
+                    }
+                }
+                .build()
+
+            withContext(Dispatchers.IO) {
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        projectIndexed = true
+                        println("✅ Project indexed: $projectName")
+                    } else {
+                        println("⚠️ Failed to index project: ${response.code}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Project indexing error: ${e.message}")
         }
     }
 

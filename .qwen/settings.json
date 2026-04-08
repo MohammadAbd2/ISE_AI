@@ -11,7 +11,12 @@
       "Bash(rm *)",
       "Bash(find *)",
       "Bash(git checkout *)",
-      "Bash(chmod *)"
+      "Bash(chmod *)",
+      "Bash(curl *)",
+      "Bash(npx *)",
+      "Bash(./gradlew *)",
+      "Bash(ls *)",
+      "Bash(mv *)"
     ]
   },
   "$version": 3

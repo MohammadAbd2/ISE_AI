@@ -1015,6 +1015,245 @@ a {
   color: #8bb8ff;
 }
 
+/* Enhanced Composer Controls */
+.composer-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-dropdown {
+  position: relative;
+}
+
+.control-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(10, 24, 35, 0.85);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.control-button:hover {
+  background: rgba(68, 211, 255, 0.16);
+  border-color: rgba(68, 211, 255, 0.32);
+}
+
+.control-icon {
+  font-size: 1rem;
+}
+
+.control-label {
+  font-weight: 500;
+}
+
+.control-arrow {
+  font-size: 0.6rem;
+  opacity: 0.6;
+}
+
+.control-dropdown-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  min-width: 160px;
+}
+
+.control-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  font-size: 0.9rem;
+}
+
+.control-dropdown-item:hover {
+  background: rgba(68, 211, 255, 0.16);
+  border-color: rgba(68, 211, 255, 0.32);
+}
+
+.control-dropdown-item.active {
+  background: rgba(68, 211, 255, 0.24);
+  border-color: rgba(68, 211, 255, 0.48);
+  font-weight: 600;
+}
+
+.effort-icon {
+  font-size: 1.1rem;
+}
+
+/* Upload Button */
+.upload-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: rgba(68, 211, 255, 0.12);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-button:hover:not(:disabled) {
+  background: rgba(68, 211, 255, 0.24);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.upload-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upload-icon {
+  font-size: 1.8rem;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.upload-text {
+  font-size: 0.7rem;
+}
+
+/* Indexed Files Button */
+.indexed-files-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(41, 215, 165, 0.08);
+  color: var(--success);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.indexed-files-button:hover {
+  background: rgba(41, 215, 165, 0.16);
+  border-color: rgba(41, 215, 165, 0.32);
+}
+
+.files-icon {
+  font-size: 1.1rem;
+}
+
+.files-count {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Enhanced Token Display */
+.token-usage-display {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.token-item {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(6, 15, 22, 0.6);
+  font-size: 0.8rem;
+}
+
+.token-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.token-value {
+  color: var(--text);
+  font-weight: 600;
+  font-family: "Courier New", monospace;
+}
+
+.token-available {
+  color: var(--success);
+}
+
+/* Enhanced Attachments */
+.composer-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: rgba(8, 18, 27, 0.76);
+  color: var(--text);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.composer-attachment:hover {
+  background: rgba(255, 125, 144, 0.12);
+  border-color: rgba(255, 125, 144, 0.32);
+}
+
+.attachment-icon {
+  font-size: 1rem;
+}
+
+.attachment-name {
+  font-size: 0.85rem;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-remove {
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin-left: 4px;
+}
+
+/* Enhanced Send Button */
+.send-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+}
+
+.button-icon {
+  font-size: 1.1rem;
+}
+
+
 .generated-image-card {
   border: 1px solid var(--line);
   border-radius: 18px;

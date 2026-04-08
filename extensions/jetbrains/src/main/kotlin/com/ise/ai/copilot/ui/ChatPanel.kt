@@ -373,10 +373,20 @@ class ChatPanel(private val project: Project) {
         val projectPath = project.basePath ?: return
         val projectFile = java.io.File(projectPath)
         projectFiles = mutableListOf()
-        
+
+        // Trigger backend indexing
+        scope.launch {
+            try {
+                service.indexProject(projectPath, project.name)
+            } catch (e: Exception) {
+                println("⚠️ Project indexing error: ${e.message}")
+            }
+        }
+
+        // Also keep local index for quick access
         fun traverse(dir: java.io.File, depth: Int = 0) {
             if (depth > 5 || (projectFiles as? MutableList)?.size ?: 0 > 200) return
-            
+
             dir.listFiles()?.forEach { file ->
                 if (!file.name.startsWith(".")) {
                     if (file.isFile) {
@@ -387,7 +397,7 @@ class ChatPanel(private val project: Project) {
                 }
             }
         }
-        
+
         traverse(projectFile)
         loadedContext = "PROJECT_STRUCTURE: Indexed ${projectFiles.size} files"
     }

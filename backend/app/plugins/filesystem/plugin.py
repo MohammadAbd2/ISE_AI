@@ -119,7 +119,12 @@ class FileSystemPlugin:
 
         # Check parts of the path
         for part in path.parts:
-            if part in ignore_patterns or part.startswith("."):
+            # Check if it's in the ignore patterns
+            if part in ignore_patterns:
+                return True
+            # Only ignore hidden files/folders if they're in the default ignore list
+            # Don't ignore ALL hidden files (like .env files, etc.)
+            if part.startswith(".") and part in {".git", ".idea", ".vscode", ".venv", ".env", ".cache", ".pytest", ".tox", ".eggs", ".mypy_cache", ".next", ".gradle"}:
                 return True
 
         # Check against patterns with wildcards
@@ -525,10 +530,22 @@ class FileSystemPlugin:
 
     def _resolve_path(self, path: Optional[str]) -> Path:
         """Resolve a path relative to root"""
-        if not path:
+        if not path or path.strip() == "":
             return self.root_path
 
-        target = self.root_path / path
+        # Handle paths that might start with ./ or ../
+        path_clean = path.strip()
+        
+        # If it's an absolute path, use it directly
+        if path_clean.startswith("/"):
+            target = Path(path_clean)
+        else:
+            # Remove leading ./ if present
+            if path_clean.startswith("./"):
+                path_clean = path_clean[2:]
+            
+            target = self.root_path / path_clean
+        
         try:
             return target.resolve()
         except Exception:
