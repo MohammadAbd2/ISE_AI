@@ -1,0 +1,34 @@
+.real-intelligence-shell { display: grid; gap: 1rem; }
+.agent-run-card-v2, .admin-control-dashboard, .live-logs-panel, .file-changes-viewer-v2, .code-preview-v2 { border: 1px solid rgba(148,163,184,.22); background: rgba(15,23,42,.72); border-radius: 24px; box-shadow: 0 24px 80px rgba(2,6,23,.22); }
+.agent-status-bar { display: grid; grid-template-columns: minmax(220px,1fr) minmax(220px,2fr) auto; gap: 1rem; align-items: center; padding: 1rem; }
+.agent-status-bar strong { color: #f8fafc; display: block; }
+.agent-status-bar span { color: rgba(226,232,240,.72); font-size: .88rem; }
+.agent-status-bar b { color: #67e8f9; font-size: 1.1rem; }
+.agent-status-bar.is-failed b { color: #fca5a5; }
+.agent-progress-track { height: 10px; overflow: hidden; border-radius: 999px; background: rgba(148,163,184,.18); }
+.agent-progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#22d3ee,#a78bfa); transition: width .35s ease; }
+.agent-run-grid-v2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,.85fr); gap: 1rem; padding: 0 1rem 1rem; }
+.execution-timeline-v2 { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.timeline-step { display: grid; grid-template-columns: 34px 1fr; gap: .75rem; padding: .9rem; border-radius: 18px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+.step-index { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: rgba(103,232,249,.12); color: #67e8f9; font-weight: 900; }
+.timeline-step strong, .live-logs-panel strong, .file-changes-viewer-v2 strong, .admin-control-dashboard h3 { color: #f8fafc; }
+.timeline-step p, .timeline-step small, .live-logs-panel small, .file-changes-viewer-v2 small { color: rgba(226,232,240,.7); margin: .25rem 0 0; }
+.timeline-step.is-done { border-color: rgba(52,211,153,.35); }
+.timeline-step.is-failed, .timeline-step.is-needs_repair { border-color: rgba(248,113,113,.4); }
+.live-logs-panel, .file-changes-viewer-v2 { padding: 1rem; display: grid; gap: .65rem; align-content: start; }
+.live-logs-panel header, .file-changes-viewer-v2 header, .code-preview-v2 header, .admin-control-dashboard header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+.live-logs-panel header span, .file-changes-viewer-v2 header span, .code-preview-v2 header span, .admin-control-dashboard header span { color: rgba(226,232,240,.65); font-size: .82rem; }
+.log-event, .file-changes-viewer-v2 article { display: grid; gap: .2rem; padding: .75rem; border-radius: 14px; background: rgba(2,6,23,.38); }
+.log-event b { color: #93c5fd; }
+.log-event span, .file-changes-viewer-v2 b { color: #e2e8f0; }
+.file-changes-viewer-v2 article span { color: #67e8f9; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+.download-cta-v2 { margin: 0 1rem 1rem; display: inline-flex; justify-content: center; padding: .9rem 1.1rem; border-radius: 999px; background: #67e8f9; color: #06121f; text-decoration: none; font-weight: 900; }
+.code-preview-v2 { overflow: hidden; }
+.code-preview-v2 header { padding: .75rem 1rem; background: rgba(15,23,42,.9); }
+.code-preview-v2 pre { margin: 0; padding: 1rem; overflow: auto; color: #dbeafe; }
+.code-line { display: grid; grid-template-columns: 3ch 1fr; gap: 1rem; min-height: 1.45rem; font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+.code-line i { color: rgba(148,163,184,.6); font-style: normal; user-select: none; text-align: right; }
+.admin-control-dashboard { padding: 1rem; display: grid; gap: 1rem; }
+.admin-control-dashboard label { display: flex; justify-content: space-between; gap: 1rem; align-items: center; color: #e2e8f0; padding: .8rem; border-radius: 16px; background: rgba(255,255,255,.05); }
+.admin-control-dashboard input, .admin-control-dashboard select { background: rgba(2,6,23,.8); color: #f8fafc; border: 1px solid rgba(148,163,184,.3); border-radius: 12px; padding: .55rem .7rem; }
+@media (max-width: 900px) { .agent-status-bar, .agent-run-grid-v2 { grid-template-columns: 1fr; } .admin-control-dashboard label { align-items: flex-start; flex-direction: column; } }

@@ -1,0 +1,39 @@
+{
+  "name": "ise-ai-agent",
+  "displayName": "ISE AI Agent",
+  "version": "0.2.0",
+  "publisher": "ise-ai",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "activationEvents": [
+    "onCommand:iseAi.openPanel",
+    "onCommand:iseAi.sendSelection"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "iseAi.openPanel",
+        "title": "ISE AI: Open Agent Panel"
+      },
+      {
+        "command": "iseAi.sendSelection",
+        "title": "ISE AI: Send Selection to Agent"
+      },
+      {
+        "command": "iseAi.rewriteCurrentFile",
+        "title": "ISE AI: Rewrite Current File with Agent"
+      }
+    ],
+    "configuration": {
+      "properties": {
+        "iseAi.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "ISE AI backend URL"
+        }
+      }
+    }
+  }
+}

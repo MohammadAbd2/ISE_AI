@@ -1,0 +1,825 @@
+/* Training CSS - Modern styling for training interface */
+
+.training-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  padding: 20px;
+}
+
+.training-header {
+  margin-bottom: 30px;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+
+.training-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 10px;
+}
+
+.training-header .subtitle {
+  margin: 0;
+  color: #a0aec0;
+  font-size: 1.1rem;
+}
+
+/* Tab Navigation */
+.training-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.training-tab {
+  padding: 12px 20px;
+  background: transparent;
+  color: #a0aec0;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.training-tab:hover {
+  color: #60a5fa;
+  border-bottom-color: rgba(96, 165, 250, 0.3);
+}
+
+.training-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+}
+
+/* Training Content */
+.training-content {
+  flex: 1;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Dataset Manager */
+.dataset-manager,
+.prompt-optimizer,
+.trainer-container,
+.evaluator-container,
+.history-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.manager-header,
+.optimizer-header,
+.trainer-header,
+.evaluator-header,
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.manager-header h3,
+.optimizer-header h3,
+.trainer-header h3,
+.evaluator-header h3,
+.history-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #60a5fa;
+}
+
+.hint {
+  color: #a0aec0;
+  font-size: 0.9rem;
+  margin: 0;
+  font-style: italic;
+}
+
+.upload-btn,
+.save-btn,
+.train-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.upload-btn:hover,
+.save-btn:hover,
+.train-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(96, 165, 250, 0.3);
+}
+
+.upload-btn:disabled,
+.save-btn:disabled,
+.train-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Datasets List */
+.datasets-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.dataset-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(96, 165, 250, 0.05);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.dataset-card:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.dataset-icon {
+  font-size: 2rem;
+  min-width: 50px;
+  text-align: center;
+}
+
+.dataset-info {
+  flex: 1;
+}
+
+.dataset-name {
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 6px;
+}
+
+.dataset-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #a0aec0;
+}
+
+.dataset-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 6px 10px;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.delete-btn {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Form Elements */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e0e0e0;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  background: rgba(96, 165, 250, 0.05);
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+}
+
+/* Prompt Editor */
+.prompt-editor {
+  padding: 20px;
+  background: rgba(96, 165, 250, 0.05);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.prompt-editor h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+}
+
+.prompts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.prompts-list h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+}
+
+.prompt-card {
+  padding: 15px;
+  background: rgba(96, 165, 250, 0.05);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.prompt-card:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.prompt-header h5 {
+  margin: 0;
+  color: #e0e0e0;
+}
+
+.prompt-stats {
+  display: flex;
+  gap: 15px;
+}
+
+.prompt-stats .stat {
+  font-size: 0.85rem;
+  color: #a0aec0;
+}
+
+.prompt-description {
+  color: #a0aec0;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Trainer Config */
+.trainer-config {
+  padding: 20px;
+  background: rgba(96, 165, 250, 0.05);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.trainer-config h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+}
+
+.config-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.config-group label {
+  color: #e0e0e0;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.config-group input,
+.config-group select {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.config-group input:focus,
+.config-group select:focus {
+  outline: none;
+  background: rgba(96, 165, 250, 0.05);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+/* Training Status */
+.training-status {
+  margin-top: 20px;
+}
+
+.training-status h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+}
+
+.training-card {
+  padding: 20px;
+  background: rgba(96, 165, 250, 0.05);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-left: 4px solid #60a5fa;
+  border-radius: 8px;
+}
+
+.training-card.training-running {
+  border-left-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.training-card.training-completed {
+  border-left-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.training-card.training-failed {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.status-icon {
+  font-size: 1.5rem;
+}
+
+.status-text {
+  color: #e0e0e0;
+}
+
+.training-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #60a5fa, #3b82f6);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-weight: 600;
+  color: #60a5fa;
+  min-width: 50px;
+  text-align: right;
+}
+
+.training-metrics-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.metric-item {
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.metric-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+/* Model Evaluator */
+.models-list {
+  margin-bottom: 20px;
+}
+
+.models-list h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+}
+
+.model-card {
+  display: inline-block;
+  padding: 15px;
+  background: rgba(96, 165, 250, 0.05);
+  border: 2px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  margin-right: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.model-card:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.model-card.selected {
+  border-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+}
+
+.model-name {
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 4px;
+}
+
+.model-version {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  margin-bottom: 2px;
+}
+
+.model-size {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  margin-bottom: 8px;
+}
+
+.eval-btn {
+  width: 100%;
+  padding: 6px;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.eval-btn:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.evaluation-results {
+  margin-top: 20px;
+}
+
+.evaluation-results h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+}
+
+.eval-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  padding: 20px;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+}
+
+.eval-metric {
+  text-align: center;
+}
+
+.eval-label {
+  font-size: 0.8rem;
+  color: #a0aec0;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.eval-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* History */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 15px;
+  background: rgba(96, 165, 250, 0.05);
+  border-left: 4px solid #60a5fa;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.history-item.history-completed {
+  border-left-color: #10b981;
+}
+
+.history-item.history-failed {
+  border-left-color: #ef4444;
+}
+
+.history-info {
+  flex: 0 0 auto;
+  min-width: 200px;
+}
+
+.history-title {
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 4px;
+}
+
+.history-date {
+  font-size: 0.85rem;
+  color: #a0aec0;
+}
+
+.history-stats {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.history-stats .stat {
+  font-size: 0.85rem;
+  color: #a0aec0;
+}
+
+.view-btn {
+  padding: 8px 16px;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-btn:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #a0aec0;
+}
+
+.empty-state p {
+  margin: 8px 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .training-header {
+    padding: 20px;
+  }
+
+  .training-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .datasets-list {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .training-container {
+    padding: 12px;
+  }
+
+  .training-header {
+    padding: 15px;
+  }
+
+  .training-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .training-tabs {
+    flex-wrap: wrap;
+  }
+
+  .training-tab {
+    padding: 10px 15px;
+    font-size: 0.85rem;
+  }
+
+  .training-content {
+    padding: 15px;
+  }
+
+  .datasets-list {
+    grid-template-columns: 1fr;
+  }
+
+  .dataset-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .dataset-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+
+  .manager-header,
+  .optimizer-header,
+  .trainer-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .upload-btn,
+  .save-btn,
+  .train-btn {
+    width: 100%;
+  }
+
+  .training-metrics-display {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-stats {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .view-btn {
+    width: 100%;
+  }
+}
+
+/* Dark Mode (automatic) */
+@media (prefers-color-scheme: dark) {
+  .training-container {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+    color: #e0e0e0;
+  }
+}
+
+/* Light Mode */
+@media (prefers-color-scheme: light) {
+  .training-container {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    color: #1f2937;
+  }
+
+  .training-header {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .training-tabs {
+    border-bottom-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .training-tab {
+    color: #6b7280;
+  }
+
+  .training-tab:hover,
+  .training-tab.active {
+    color: #3b82f6;
+  }
+
+  .training-tab.active {
+    border-bottom-color: #3b82f6;
+  }
+
+  .training-content {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Update all interactive elements for light mode */
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #1f2937;
+  }
+
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus {
+    background: rgba(59, 130, 246, 0.05);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+}

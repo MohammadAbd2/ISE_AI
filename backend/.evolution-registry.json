@@ -1,0 +1,278 @@
+{
+  "text_generation": {
+    "name": "text_generation",
+    "description": "Generate text responses using language models",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.188997+00:00",
+    "metadata": {
+      "default": true,
+      "models": [
+        "llama3",
+        "mistral"
+      ]
+    }
+  },
+  "memory_management": {
+    "name": "memory_management",
+    "description": "Store and retrieve user information and preferences",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189023+00:00",
+    "metadata": {
+      "default": true
+    }
+  },
+  "web_search": {
+    "name": "web_search",
+    "description": "Search the web for information",
+    "status": "available",
+    "version": "1.1.0",
+    "added_at": "2026-04-27T03:32:55.189029+00:00",
+    "metadata": {
+      "provider": "duckduckgo+bing",
+      "supports_freshness": true
+    }
+  },
+  "image_search": {
+    "name": "image_search",
+    "description": "Search for images using DuckDuckGo image search",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189034+00:00",
+    "metadata": {
+      "default": true,
+      "provider": "duckduckgo"
+    }
+  },
+  "vision_analysis": {
+    "name": "vision_analysis",
+    "description": "Analyze and describe uploaded images",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189037+00:00",
+    "metadata": {
+      "default": true,
+      "requires": "ollama_vision_model"
+    }
+  },
+  "codebase_inspection": {
+    "name": "codebase_inspection",
+    "description": "Inspect directories, imports, and project structure through runtime analysis tools",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189041+00:00",
+    "metadata": {
+      "default": true,
+      "tools": [
+        "list_directory",
+        "analyze_imports"
+      ]
+    }
+  },
+  "project_archive_analysis": {
+    "name": "project_archive_analysis",
+    "description": "Understand uploaded ZIP projects through framework, config, and code-structure extraction",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189046+00:00",
+    "metadata": {
+      "default": true,
+      "inputs": [
+        "zip",
+        "project",
+        "codebase"
+      ]
+    }
+  },
+  "structured_artifacts": {
+    "name": "structured_artifacts",
+    "description": "Return typed render blocks such as reports, file results, plans, and research cards",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189050+00:00",
+    "metadata": {
+      "default": true,
+      "render_blocks": true
+    }
+  },
+  "dynamic_visualization": {
+    "name": "dynamic_visualization",
+    "description": "Render dynamic 2D charts and 3D maps from user prompts and uploaded data",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189054+00:00",
+    "metadata": {
+      "default": true,
+      "views": [
+        "chart2d",
+        "map3d"
+      ]
+    }
+  },
+  "session_analytics": {
+    "name": "session_analytics",
+    "description": "Resolve session-backed artifacts, reports, and latest visualization state for reusable dashboards",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189057+00:00",
+    "metadata": {
+      "default": true,
+      "route": "/api/session-analytics"
+    }
+  },
+  "conversation_trace_analysis": {
+    "name": "conversation_trace_analysis",
+    "description": "Inspect recent session history and artifact context for debugging, auditing, and follow-up actions",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189062+00:00",
+    "metadata": {
+      "default": true,
+      "tools": [
+        "session_history",
+        "list_artifacts",
+        "reopen_artifact"
+      ]
+    }
+  },
+  "planning_execution": {
+    "name": "planning_execution",
+    "description": "Create and execute project-aware multi-step plans with verification and typed results",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189065+00:00",
+    "metadata": {
+      "default": true,
+      "plan_result_blocks": true
+    }
+  },
+  "intelligent_code_editing": {
+    "name": "intelligent_code_editing",
+    "description": "Perform project-aware code creation, editing, registration, and repair with verification",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189069+00:00",
+    "metadata": {
+      "default": true,
+      "verifies_changes": true,
+      "multi_file": true
+    }
+  },
+  "artifact_reopen": {
+    "name": "artifact_reopen",
+    "description": "Reopen saved research and file artifacts back into chat as structured outputs",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189073+00:00",
+    "metadata": {
+      "default": true,
+      "chat_rehydration": true
+    }
+  },
+  "research_memory": {
+    "name": "research_memory",
+    "description": "Persist and reuse web research runs with confidence, freshness, and source conflict signals",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189076+00:00",
+    "metadata": {
+      "default": true,
+      "artifact_kind": "research"
+    }
+  },
+  "analytics_dashboard_generation": {
+    "name": "analytics_dashboard_generation",
+    "description": "Generate reusable analytics dashboards and workspace views backed by dynamic visualization components",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189080+00:00",
+    "metadata": {
+      "default": true,
+      "integrates_dashboard": true,
+      "integrates_workspace": true
+    }
+  },
+  "codebase_mapping": {
+    "name": "codebase_mapping",
+    "description": "Build a compact architecture map of backend routes, services, frontend views, docs, and tests",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189083+00:00",
+    "metadata": {
+      "default": true,
+      "route": "/api/project/map",
+      "dashboard_panel": "Codebase map",
+      "drives": [
+        "developer_docs",
+        "self_improvement"
+      ]
+    }
+  },
+  "regression_evaluation": {
+    "name": "regression_evaluation",
+    "description": "Run internal regression checks for routing, capability registration, and product contracts",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189087+00:00",
+    "metadata": {
+      "default": true,
+      "route": "/api/evals/run",
+      "dashboard_panel": "Internal evals",
+      "score_scale": "0-10"
+    }
+  },
+  "self_improvement_planning": {
+    "name": "self_improvement_planning",
+    "description": "Rank self-improvement proposals using eval signals, codebase structure, and capability gaps",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189090+00:00",
+    "metadata": {
+      "default": true,
+      "route": "/api/learning/improvement-plan",
+      "dashboard_panel": "Improvement planner",
+      "depends_on": [
+        "regression_evaluation",
+        "codebase_mapping"
+      ]
+    }
+  },
+  "turn_diagnostics": {
+    "name": "turn_diagnostics",
+    "description": "Capture recent turn-level execution traces including intent, agent usage, search, and render blocks",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189094+00:00",
+    "metadata": {
+      "default": true,
+      "route": "/api/learning/turn-diagnostics",
+      "dashboard_panel": "Recent turn diagnostics",
+      "retention": "recent_session_window"
+    }
+  },
+  "structured_memory_summary": {
+    "name": "structured_memory_summary",
+    "description": "Summarize user, project, research, and execution memory into explicit machine-readable buckets",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189104+00:00",
+    "metadata": {
+      "default": true,
+      "route": "/api/learning/memory-summary",
+      "dashboard_panel": "Structured memory",
+      "memory_buckets": 4
+    }
+  },
+  "voice_input": {
+    "name": "voice_input",
+    "description": "Capture voice input from the frontend composer when browser speech support is available",
+    "status": "available",
+    "version": "1.0.0",
+    "added_at": "2026-04-27T03:32:55.189108+00:00",
+    "metadata": {
+      "default": true,
+      "mode": "browser_speech"
+    }
+  }
+}

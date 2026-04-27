@@ -1,0 +1,36 @@
+.agent-file-tree-card { border: 1px solid rgba(148, 163, 184, 0.24); border-radius: 24px; background: rgba(15, 23, 42, 0.72); padding: 1rem; box-shadow: 0 22px 60px rgba(2, 6, 23, 0.24); }
+.agent-file-tree-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.agent-file-tree-head h4 { margin: .1rem 0 0; color: #f8fafc; }
+.agent-file-tree-head span { color: #a5f3fc; font-weight: 800; }
+.agent-file-filter { width: 100%; box-sizing: border-box; border: 1px solid rgba(148, 163, 184, .32); background: rgba(2, 6, 23, .52); color: #e2e8f0; border-radius: 14px; padding: .75rem .9rem; margin-bottom: .75rem; }
+.agent-file-tree-list { display: grid; gap: .22rem; max-height: 520px; overflow: auto; padding-right: .25rem; }
+.agent-tree-row { width: 100%; min-height: 38px; display: flex; align-items: center; gap: .55rem; border-radius: 12px; border: 1px solid transparent; color: #e2e8f0; background: transparent; text-align: left; }
+button.agent-tree-row { cursor: pointer; font: inherit; }
+.agent-tree-row.folder:hover, .agent-tree-row.file:hover { background: rgba(148, 163, 184, .1); border-color: rgba(148, 163, 184, .2); }
+.agent-tree-arrow { display: inline-flex; width: 1rem; transition: transform .16s ease; color: #94a3b8; }
+.agent-tree-arrow.open { transform: rotate(90deg); }
+.agent-tree-row em { margin-left: auto; margin-right: .65rem; color: #94a3b8; font-style: normal; font-size: .78rem; }
+.agent-tree-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-file-icon { width: 1.55rem; height: 1.55rem; border-radius: .55rem; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.08); font-size: .8rem; font-weight: 900; }
+.agent-file-pill { margin-left: auto; border-radius: 999px; padding: .22rem .48rem; font-size: .68rem; font-weight: 900; letter-spacing: .05em; color: #020617; background: #cbd5e1; }
+.agent-file-pill.jsx, .agent-file-pill.tsx { background: #67e8f9; }
+.agent-file-pill.js { background: #fde047; }
+.agent-file-pill.css, .agent-file-pill.scss { background: #f0abfc; }
+.agent-file-pill.cs { background: #c4b5fd; }
+.agent-file-pill.sql { background: #86efac; }
+.agent-tree-actions { display: flex; gap: .4rem; margin-left: .25rem; }
+.agent-tree-actions button { border: 1px solid rgba(148, 163, 184, .28); border-radius: 999px; background: rgba(15, 23, 42, .85); color: #e2e8f0; padding: .28rem .56rem; cursor: pointer; font-weight: 800; font-size: .72rem; }
+.agent-tree-actions button:hover { border-color: rgba(103, 232, 249, .7); color: #a5f3fc; }
+.agent-file-preview { border: 1px solid rgba(148, 163, 184, .24); border-radius: 20px; background: rgba(2, 6, 23, .86); padding: 1rem; overflow: auto; }
+.agent-file-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.agent-file-preview pre { margin: 0; color: #e2e8f0; font-size: .82rem; line-height: 1.55; white-space: pre-wrap; }
+
+.agent-run-card .agent-file-tree-card {
+  margin-top: 1rem;
+  border-color: rgba(125, 211, 252, 0.2);
+  background: rgba(2, 6, 23, 0.55);
+}
+.agent-run-card .agent-tree-row.file:hover,
+.agent-run-card .agent-tree-row.folder:hover {
+  background: rgba(14, 165, 233, 0.08);
+}

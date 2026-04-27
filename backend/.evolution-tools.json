@@ -1,0 +1,902 @@
+{
+  "read_file": {
+    "name": "read_file",
+    "description": "Read the contents of a file",
+    "function_ref": "tool_executor.read_file",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "File path"
+      }
+    },
+    "return_type": "str",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "write_file": {
+    "name": "write_file",
+    "description": "Write content to a file",
+    "function_ref": "tool_executor.write_file",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "File path"
+      },
+      "content": {
+        "type": "string",
+        "description": "Content to write"
+      },
+      "append": {
+        "type": "boolean",
+        "description": "Append if True"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "list_directory": {
+    "name": "list_directory",
+    "description": "List files and directories in a safe workspace path",
+    "function_ref": "tool_executor.list_directory",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "Directory path"
+      }
+    },
+    "return_type": "array",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "execute_command": {
+    "name": "execute_command",
+    "description": "Execute a shell command safely",
+    "function_ref": "tool_executor.execute_command",
+    "parameters": {
+      "command": {
+        "type": "string",
+        "description": "Command to execute"
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Working directory"
+      },
+      "timeout": {
+        "type": "integer",
+        "description": "Timeout in seconds"
+      }
+    },
+    "return_type": "dict",
+    "category": "execution",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "register_capability": {
+    "name": "register_capability",
+    "description": "Register a new AI capability",
+    "function_ref": "capability_registry.register",
+    "parameters": {
+      "name": {
+        "type": "string",
+        "description": "Capability name"
+      },
+      "description": {
+        "type": "string",
+        "description": "Capability description"
+      }
+    },
+    "return_type": "dict",
+    "category": "capability_management",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "update_capability_status": {
+    "name": "update_capability_status",
+    "description": "Update the status of a capability",
+    "function_ref": "capability_registry.update_status",
+    "parameters": {
+      "name": {
+        "type": "string",
+        "description": "Capability name"
+      },
+      "status": {
+        "type": "string",
+        "description": "New status (available, pending, in_development, failed, deprecated)"
+      }
+    },
+    "return_type": "dict",
+    "category": "capability_management",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "analyze_imports": {
+    "name": "analyze_imports",
+    "description": "Extract import dependencies from a Python source file",
+    "function_ref": "tool_executor.analyze_imports",
+    "parameters": {
+      "file_path": {
+        "type": "string",
+        "description": "Python file path"
+      }
+    },
+    "return_type": "array",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "web_research": {
+    "name": "web_research",
+    "description": "Run a multi-query web research pass and persist the result as research memory",
+    "function_ref": "search_service.web_research",
+    "parameters": {
+      "query": {
+        "type": "string",
+        "description": "Research question"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Active session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "research",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "build_visualization": {
+    "name": "build_visualization",
+    "description": "Parse user data into a dynamic chart or 3D map specification",
+    "function_ref": "visualization.build_visualization_artifacts",
+    "parameters": {
+      "prompt": {
+        "type": "string",
+        "description": "Visualization request"
+      },
+      "data": {
+        "type": "string",
+        "description": "Optional raw dataset"
+      }
+    },
+    "return_type": "dict",
+    "category": "visualization",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "session_analytics": {
+    "name": "session_analytics",
+    "description": "Resolve the latest session artifacts, render blocks, and visualization context",
+    "function_ref": "session_analytics.build_session_analytics_payload",
+    "parameters": {
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "analytics",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "session_history": {
+    "name": "session_history",
+    "description": "Inspect the current chat session history and summarize recent messages",
+    "function_ref": "history_service.get_session",
+    "parameters": {
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "analytics",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "project_archive_analysis": {
+    "name": "project_archive_analysis",
+    "description": "Analyze uploaded project archives for frameworks, configs, and prioritized source context",
+    "function_ref": "document_service.extract_archive_context",
+    "parameters": {
+      "artifact_id": {
+        "type": "string",
+        "description": "Archive artifact id"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "generate_plan": {
+    "name": "generate_plan",
+    "description": "Create a project-aware execution plan for a coding or workflow task",
+    "function_ref": "planning_agent.create_plan",
+    "parameters": {
+      "task": {
+        "type": "string",
+        "description": "Task to plan"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "planning",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "execute_plan": {
+    "name": "execute_plan",
+    "description": "Execute a structured plan and return typed plan-result artifacts",
+    "function_ref": "planning_agent.execute_task_with_plan",
+    "parameters": {
+      "task": {
+        "type": "string",
+        "description": "Task to execute"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "planning",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "run_verification": {
+    "name": "run_verification",
+    "description": "Run project-aware verification commands after coding changes",
+    "function_ref": "intelligent_coding_agent.verify_changes",
+    "parameters": {
+      "paths": {
+        "type": "array",
+        "description": "Touched file paths"
+      }
+    },
+    "return_type": "dict",
+    "category": "verification",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "list_artifacts": {
+    "name": "list_artifacts",
+    "description": "List saved artifacts for the active session",
+    "function_ref": "artifact_service.list_artifacts",
+    "parameters": {
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "artifacts",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "reopen_artifact": {
+    "name": "reopen_artifact",
+    "description": "Reopen a saved artifact into the chat as a structured result",
+    "function_ref": "artifact_service.reopen_artifact",
+    "parameters": {
+      "artifact_id": {
+        "type": "string",
+        "description": "Artifact id"
+      },
+      "session_id": {
+        "type": "string",
+        "description": "Session id"
+      }
+    },
+    "return_type": "dict",
+    "category": "artifacts",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_status": {
+    "name": "git_status",
+    "description": "Get git repository status (branch, staged/unstaged changes, untracked files)",
+    "function_ref": "git_integration.get_status",
+    "parameters": {},
+    "return_type": "dict",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_commit": {
+    "name": "git_commit",
+    "description": "Stage files and create a git commit",
+    "function_ref": "git_integration.commit",
+    "parameters": {
+      "message": {
+        "type": "string",
+        "description": "Commit message"
+      },
+      "files": {
+        "type": "array",
+        "description": "Files to stage (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_branch_create": {
+    "name": "git_branch_create",
+    "description": "Create a new git branch",
+    "function_ref": "git_integration.create_branch",
+    "parameters": {
+      "branch_name": {
+        "type": "string",
+        "description": "New branch name"
+      },
+      "from_branch": {
+        "type": "string",
+        "description": "Branch to create from (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_branch_checkout": {
+    "name": "git_branch_checkout",
+    "description": "Switch to a git branch",
+    "function_ref": "git_integration.checkout_branch",
+    "parameters": {
+      "branch_name": {
+        "type": "string",
+        "description": "Branch to checkout"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_branches": {
+    "name": "git_branches",
+    "description": "List all git branches",
+    "function_ref": "git_integration.list_branches",
+    "parameters": {},
+    "return_type": "array",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_push": {
+    "name": "git_push",
+    "description": "Push to remote git repository",
+    "function_ref": "git_integration.push",
+    "parameters": {
+      "remote": {
+        "type": "string",
+        "description": "Remote name (default: origin)"
+      },
+      "branch": {
+        "type": "string",
+        "description": "Branch name (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_pull": {
+    "name": "git_pull",
+    "description": "Pull from remote git repository",
+    "function_ref": "git_integration.pull",
+    "parameters": {
+      "remote": {
+        "type": "string",
+        "description": "Remote name (default: origin)"
+      },
+      "branch": {
+        "type": "string",
+        "description": "Branch name (optional)"
+      }
+    },
+    "return_type": "bool",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_log": {
+    "name": "git_log",
+    "description": "Get git commit history",
+    "function_ref": "git_integration.get_log",
+    "parameters": {
+      "count": {
+        "type": "integer",
+        "description": "Number of commits (default: 20)"
+      }
+    },
+    "return_type": "array",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_diff": {
+    "name": "git_diff",
+    "description": "Get git diff of unstaged changes",
+    "function_ref": "git_integration.get_diff",
+    "parameters": {
+      "file_path": {
+        "type": "string",
+        "description": "File path (optional)"
+      }
+    },
+    "return_type": "str",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "git_commit_suggestion": {
+    "name": "git_commit_suggestion",
+    "description": "Generate a commit message based on current changes",
+    "function_ref": "git_integration.generate_commit_message",
+    "parameters": {},
+    "return_type": "dict",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "search_in_files": {
+    "name": "search_in_files",
+    "description": "Search for text or regex pattern across multiple files in the project",
+    "function_ref": "filesystem_plugin.search_in_files",
+    "parameters": {
+      "pattern": {
+        "type": "string",
+        "description": "Text or regex pattern"
+      },
+      "folder": {
+        "type": "string",
+        "description": "Folder to search in (optional)"
+      },
+      "use_regex": {
+        "type": "boolean",
+        "description": "Use regex pattern"
+      },
+      "case_sensitive": {
+        "type": "boolean",
+        "description": "Case sensitive search"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum results (default: 50)"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "replace_in_files": {
+    "name": "replace_in_files",
+    "description": "Search and replace text across multiple files",
+    "function_ref": "filesystem_plugin.replace_in_files",
+    "parameters": {
+      "search_pattern": {
+        "type": "string",
+        "description": "Text or regex to search"
+      },
+      "replacement": {
+        "type": "string",
+        "description": "Replacement text"
+      },
+      "folder": {
+        "type": "string",
+        "description": "Folder to search in (optional)"
+      },
+      "use_regex": {
+        "type": "boolean",
+        "description": "Use regex pattern"
+      },
+      "case_sensitive": {
+        "type": "boolean",
+        "description": "Case sensitive search"
+      },
+      "file_pattern": {
+        "type": "string",
+        "description": "File pattern filter (e.g., *.py)"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "get_file_tree": {
+    "name": "get_file_tree",
+    "description": "Get file tree structure for the project or a specific folder",
+    "function_ref": "filesystem_plugin.get_file_tree",
+    "parameters": {
+      "folder": {
+        "type": "string",
+        "description": "Folder to get tree for (optional)"
+      },
+      "max_depth": {
+        "type": "integer",
+        "description": "Maximum depth (default: 5)"
+      },
+      "include_hidden": {
+        "type": "boolean",
+        "description": "Include hidden files"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "semantic_code_search": {
+    "name": "semantic_code_search",
+    "description": "Search code intelligently using semantic understanding (functions, classes, imports, keywords)",
+    "function_ref": "semantic_search.search",
+    "parameters": {
+      "query": {
+        "type": "string",
+        "description": "Search query (function name, keyword, concept)"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum results (default: 20)"
+      }
+    },
+    "return_type": "dict",
+    "category": "search",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "glob_search": {
+    "name": "glob_search",
+    "description": "Search for files using glob patterns (e.g., **/*.py)",
+    "function_ref": "tool_executor.glob_search",
+    "parameters": {
+      "pattern": {
+        "type": "string",
+        "description": "Glob pattern"
+      },
+      "path": {
+        "type": "string",
+        "description": "Root path to search from (default: .)"
+      }
+    },
+    "return_type": "array",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "rip_grep": {
+    "name": "rip_grep",
+    "description": "Advanced search for a pattern in file contents (regex supported)",
+    "function_ref": "tool_executor.rip_grep",
+    "parameters": {
+      "pattern": {
+        "type": "string",
+        "description": "The regular expression pattern to search for"
+      },
+      "path": {
+        "type": "string",
+        "description": "File or directory to search in"
+      },
+      "case_insensitive": {
+        "type": "boolean",
+        "description": "Case insensitive search"
+      },
+      "context": {
+        "type": "integer",
+        "description": "Number of lines of context to show"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "fetch_url": {
+    "name": "fetch_url",
+    "description": "Fetch content from a URL safely",
+    "function_ref": "tool_executor.fetch_url",
+    "parameters": {
+      "url": {
+        "type": "string",
+        "description": "URL to fetch"
+      }
+    },
+    "return_type": "dict",
+    "category": "research",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "mcp_list_servers": {
+    "name": "mcp_list_servers",
+    "description": "List all configured MCP servers",
+    "function_ref": "mcp_client.list_servers",
+    "parameters": {},
+    "return_type": "dict",
+    "category": "mcp",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "mcp_connect": {
+    "name": "mcp_connect",
+    "description": "Connect to an MCP server",
+    "function_ref": "mcp_client.connect_server",
+    "parameters": {
+      "server_name": {
+        "type": "string",
+        "description": "Name of the server to connect"
+      }
+    },
+    "return_type": "dict",
+    "category": "mcp",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "mcp_execute": {
+    "name": "mcp_execute",
+    "description": "Execute a tool on an MCP server",
+    "function_ref": "mcp_client.execute_tool",
+    "parameters": {
+      "server_name": {
+        "type": "string",
+        "description": "Server name"
+      },
+      "tool_name": {
+        "type": "string",
+        "description": "Tool name"
+      },
+      "arguments": {
+        "type": "object",
+        "description": "Tool arguments"
+      }
+    },
+    "return_type": "dict",
+    "category": "mcp",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "lsp_index": {
+    "name": "lsp_index",
+    "description": "Index the project for code intelligence",
+    "function_ref": "lsp_integration.index_project",
+    "parameters": {},
+    "return_type": "integer",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "lsp_definition": {
+    "name": "lsp_definition",
+    "description": "Find where a symbol is defined",
+    "function_ref": "lsp_integration.go_to_definition",
+    "parameters": {
+      "file_path": {
+        "type": "string",
+        "description": "File path"
+      },
+      "line": {
+        "type": "integer",
+        "description": "Line number (1-based)"
+      },
+      "column": {
+        "type": "integer",
+        "description": "Column number"
+      }
+    },
+    "return_type": "dict",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "lsp_hover": {
+    "name": "lsp_hover",
+    "description": "Get hover documentation for a symbol",
+    "function_ref": "lsp_integration.get_hover_info",
+    "parameters": {
+      "file_path": {
+        "type": "string",
+        "description": "File path"
+      },
+      "line": {
+        "type": "integer",
+        "description": "Line number (1-based)"
+      },
+      "column": {
+        "type": "integer",
+        "description": "Column number"
+      }
+    },
+    "return_type": "dict",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "lsp_symbols": {
+    "name": "lsp_symbols",
+    "description": "Search for symbols by name",
+    "function_ref": "lsp_integration.search_symbols",
+    "parameters": {
+      "query": {
+        "type": "string",
+        "description": "Search query"
+      },
+      "kind": {
+        "type": "string",
+        "description": "Optional symbol kind"
+      }
+    },
+    "return_type": "dict",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "notebook_edit": {
+    "name": "notebook_edit",
+    "description": "Edit a cell in a Jupyter notebook",
+    "function_ref": "tool_executor.notebook_edit",
+    "parameters": {
+      "path": {
+        "type": "string",
+        "description": "Notebook file path (.ipynb)"
+      },
+      "cell_index": {
+        "type": "integer",
+        "description": "Index of the cell to edit"
+      },
+      "new_content": {
+        "type": "string",
+        "description": "New content for the cell"
+      }
+    },
+    "return_type": "dict",
+    "category": "file_io",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "schedule_task": {
+    "name": "schedule_task",
+    "description": "Schedule a command to run with a cron expression",
+    "function_ref": "tool_executor.schedule_task",
+    "parameters": {
+      "name": {
+        "type": "string",
+        "description": "Task name"
+      },
+      "cron": {
+        "type": "string",
+        "description": "Cron expression (e.g., '0 0 * * *')"
+      },
+      "command": {
+        "type": "string",
+        "description": "Command to run"
+      }
+    },
+    "return_type": "dict",
+    "category": "planning",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "ask_permission": {
+    "name": "ask_permission",
+    "description": "Ask the user for explicit permission to perform a sensitive action",
+    "function_ref": "permission_manager.request_approval",
+    "parameters": {
+      "action": {
+        "type": "string",
+        "description": "The action requiring approval"
+      },
+      "details": {
+        "type": "string",
+        "description": "Detailed explanation of why this is needed"
+      }
+    },
+    "return_type": "dict",
+    "category": "interaction",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "ask_user": {
+    "name": "ask_user",
+    "description": "Ask the user a question and wait for a response",
+    "function_ref": "tool_executor.ask_user",
+    "parameters": {
+      "question": {
+        "type": "string",
+        "description": "The question to ask the user"
+      }
+    },
+    "return_type": "dict",
+    "category": "interaction",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "spawn_subagent": {
+    "name": "spawn_subagent",
+    "description": "Spawn a specialized sub-agent to handle a specific sub-task",
+    "function_ref": "tool_executor.spawn_subagent",
+    "parameters": {
+      "task": {
+        "type": "string",
+        "description": "The sub-task description"
+      },
+      "role": {
+        "type": "string",
+        "description": "The role of the sub-agent (e.g., coder, researcher)"
+      }
+    },
+    "return_type": "dict",
+    "category": "planning",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "system_doctor": {
+    "name": "system_doctor",
+    "description": "Check the health of the agent's environment and dependencies",
+    "function_ref": "tool_executor.system_doctor",
+    "parameters": {},
+    "return_type": "dict",
+    "category": "analysis",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "enter_worktree": {
+    "name": "enter_worktree",
+    "description": "Enter a new git worktree/branch for isolated development",
+    "function_ref": "tool_executor.enter_worktree",
+    "parameters": {
+      "branch_name": {
+        "type": "string",
+        "description": "Branch name"
+      }
+    },
+    "return_type": "dict",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "exit_worktree": {
+    "name": "exit_worktree",
+    "description": "Exit the current worktree and return to the main branch",
+    "function_ref": "tool_executor.exit_worktree",
+    "parameters": {
+      "merge": {
+        "type": "boolean",
+        "description": "Merge changes into main"
+      }
+    },
+    "return_type": "dict",
+    "category": "git",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "repl_execute": {
+    "name": "repl_execute",
+    "description": "Execute Python code in a persistent REPL session",
+    "function_ref": "tool_executor.repl_execute",
+    "parameters": {
+      "code": {
+        "type": "string",
+        "description": "Python code to execute"
+      }
+    },
+    "return_type": "dict",
+    "category": "execution",
+    "version": "1.0.0",
+    "enabled": true
+  }
+}
